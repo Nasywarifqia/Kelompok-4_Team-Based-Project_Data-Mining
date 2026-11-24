@@ -1,6 +1,6 @@
 DATASET BERSAMA - EARLY WARNING SYSTEM KELULUSAN MAHASISWA
 TBP Data Mining (Laura, Wawa, Agischa, Rizky, Irfan)
-Disiapkan oleh: Agischa (Evaluator & Benchmark)
+
 
 =====================================================================
 1. ISI FOLDER
