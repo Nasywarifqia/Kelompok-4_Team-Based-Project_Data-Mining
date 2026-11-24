@@ -1,0 +1,19 @@
+{
+  "fitur": {
+    "Pekerjaan Sambil Kuliah": {
+      "Tidak": 0,
+      "Ya": 1
+    },
+    "Kategori Kehadiran": {
+      "Rendah": 0,
+      "Sedang": 1,
+      "Tinggi": 2
+    }
+  },
+  "target": {
+    "0": "Dropout",
+    "1": "Graduate"
+  },
+  "random_state": 42,
+  "test_size": 0.2
+}
