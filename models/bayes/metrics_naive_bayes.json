@@ -1,0 +1,10 @@
+{
+  "model": "Naive Bayes",
+  "anggota": "Agischa",
+  "accuracy": 0.50455,
+  "precision_dropout": 0.5045863059390345,
+  "recall_dropout": 0.5441646682653877,
+  "f1_dropout": 0.523628671698476,
+  "roc_auc": 0.5055950335808215,
+  "train_time_sec": 0.03888504500000067
+}
