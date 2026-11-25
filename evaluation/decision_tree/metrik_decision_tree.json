@@ -1,0 +1,29 @@
+{
+  "model_name": "Decision Tree (CART / Gini)",
+  "anggota": "Anggota 1 - Laura",
+  "params": {
+    "criterion": "gini",
+    "max_depth": 10,
+    "random_state": 42
+  },
+  "training_time_sec": 0.5871,
+  "n_leaves": 432,
+  "tree_depth_actual": 10,
+  "test_accuracy": 0.5052,
+  "test_roc_auc": 0.503,
+  "test_precision_dropout_0": 0.5042,
+  "test_recall_dropout_0": 0.6822,
+  "test_f1_dropout_0": 0.5798,
+  "test_precision_graduate_1": 0.5075,
+  "test_recall_graduate_1": 0.3281,
+  "test_f1_graduate_1": 0.3985,
+  "test_precision_macro": 0.5058,
+  "test_recall_macro": 0.5051,
+  "test_f1_macro": 0.4892,
+  "confusion_matrix_labels_0_1": {
+    "actual_0_pred_0_correct_dropout": 6827,
+    "actual_0_pred_1_missed_dropout": 3181,
+    "actual_1_pred_0_false_alarm": 6714,
+    "actual_1_pred_1_correct_graduate": 3278
+  }
+}
