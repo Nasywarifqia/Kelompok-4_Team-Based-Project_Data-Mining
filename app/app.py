@@ -1,32 +1,91 @@
-from pathlib import Path
 import json
-import streamlit as st
-import pandas as pd
-import numpy as np
+import re
+from pathlib import Path
+from urllib.parse import urlparse
+
 import joblib
+import pandas as pd
+import streamlit as st
 
 st.set_page_config(
-    page_title="Early Warning System Kelulusan Mahasiswa",
-    page_icon="🎓",
-    layout="wide"
+    page_title="Deteksi Situs Web Phishing — Kelompok 4",
+    page_icon="🛡️",
+    layout="wide",
 )
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 MODEL_DIR = BASE_DIR / "models"
-DATA_DIR = BASE_DIR / "dataset_final_tbp" / "output"
+DATA_DIR = BASE_DIR / "dataset" / "output"
+EVAL_DIR = BASE_DIR / "evaluation"
 
-def load_encoding():
-    map_file = DATA_DIR / "encoding_map.json"
-    if map_file.exists():
-        with open(map_file, "r") as f:
-            return json.load(f)
-    return None
+FEATURE_COLS = [
+    "having_IP_Address", "URL_Length", "Shortining_Service", "having_At_Symbol",
+    "double_slash_redirecting", "Prefix_Suffix", "having_Sub_Domain", "SSLfinal_State",
+    "Domain_registeration_length", "Favicon", "port", "HTTPS_token",
+    "Request_URL", "URL_of_Anchor", "Links_in_tags", "SFH",
+    "Submitting_to_email", "Abnormal_URL", "Redirect", "on_mouseover",
+    "RightClick", "popUpWidnow", "Iframe", "age_of_domain",
+    "DNSRecord", "web_traffic", "Page_Rank", "Google_Index",
+    "Links_pointing_to_page", "Statistical_report",
+]
+
+SHORTENERS = ("bit.ly", "goo.gl", "tinyurl.com", "ow.ly", "t.co", "is.gd", "buff.ly", "rebrand.ly")
+
+
+def extract_url_features(url: str, ssl_trusted: bool, old_domain: bool) -> dict:
+    """Ekstraksi indikator leksikal URL menjadi skema fitur UCI {-1: Phishing, 0: Suspicious, 1: Legitimate}."""
+    features = {col: 1 for col in FEATURE_COLS}
+    parsed = urlparse(url if "://" in url else f"http://{url}")
+    host = parsed.netloc.lower()
+    full_url = url.strip()
+
+    if re.match(r"^\d{1,3}(\.\d{1,3}){3}$", host.split(":")[0]):
+        features["having_IP_Address"] = -1
+
+    if len(full_url) >= 75:
+        features["URL_Length"] = -1
+    elif len(full_url) >= 54:
+        features["URL_Length"] = 0
+
+    if any(s in host for s in SHORTENERS):
+        features["Shortining_Service"] = -1
+
+    if "@" in full_url:
+        features["having_At_Symbol"] = -1
+
+    if full_url.rfind("//") > 7:
+        features["double_slash_redirecting"] = -1
+
+    if "-" in host:
+        features["Prefix_Suffix"] = -1
+
+    dot_count = host.replace("www.", "").count(".")
+    if dot_count >= 3:
+        features["having_Sub_Domain"] = -1
+    elif dot_count == 2:
+        features["having_Sub_Domain"] = 0
+
+    if "https" in host:
+        features["HTTPS_token"] = -1
+
+    if parsed.scheme == "https" and ssl_trusted:
+        features["SSLfinal_State"] = 1
+    elif parsed.scheme == "https":
+        features["SSLfinal_State"] = 0
+    else:
+        features["SSLfinal_State"] = -1
+
+    if not old_domain:
+        features["age_of_domain"] = -1
+        features["Domain_registeration_length"] = -1
+
+    return features
+
 
 def load_scaler():
     scaler_file = DATA_DIR / "scaler.pkl"
-    if scaler_file.exists():
-        return joblib.load(scaler_file)
-    return None
+    return joblib.load(scaler_file) if scaler_file.exists() else None
+
 
 def get_available_models():
     models = {}
@@ -35,7 +94,7 @@ def get_available_models():
         "Random Forest": "random_forest_model.pkl",
         "Naive Bayes": "naive_bayes_model.pkl",
         "K-Nearest Neighbors (KNN)": "knn_model.pkl",
-        "Logistic Regression": "logistic_regression_model.pkl"
+        "Logistic Regression": "logistic_regression_model.pkl",
     }
     for name, filename in model_files.items():
         path = MODEL_DIR / filename
@@ -46,116 +105,113 @@ def get_available_models():
                 pass
     return models
 
-st.title("🎓 Early Warning System Kelulusan Mahasiswa")
-st.markdown("Sistem Prediksi Kelulusan & Peringatan Dini Berbasis Data Mining — **Kelompok 4**")
 
-tab1, tab2, tab3 = st.tabs(["🔍 Prediksi Kelulusan", "📊 Komparasi 5 Model", "ℹ️ Tentang Proyek"])
+st.title("🛡️ Sistem Deteksi Situs Web Phishing")
+st.markdown("Deteksi Risiko Keamanan URL Berbasis Data Mining — **Kelompok 4 (Informatika UNS)**")
+
+tab1, tab2, tab3 = st.tabs(["🔍 Deteksi Phishing", "📊 Komparasi 5 Model", "ℹ️ Tentang Proyek"])
 
 with tab1:
-    st.subheader("Form Input Parameter Akademik Mahasiswa")
-    st.write("Masukkan indikator capaian akademik untuk melakukan skrining status kelulusan.")
+    mode = st.radio(
+        "Pilih Mode Pengujian:",
+        ["Cek URL Otomatis", "Simulasi Manual Indikator Teknis"],
+        horizontal=True,
+    )
 
-    col1, col2, col3 = st.columns(3)
+    if mode == "Cek URL Otomatis":
+        url_input = st.text_input(
+            "Masukkan URL yang ingin diperiksa:",
+            value="http://login-verifikasi-akun-bank.xyz/auth?user=@test",
+        )
+        col_opt1, col_opt2 = st.columns(2)
+        with col_opt1:
+            ssl_trusted = st.checkbox("Sertifikat SSL terverifikasi & aktif > 1 tahun", value=False)
+        with col_opt2:
+            old_domain = st.checkbox("Umur domain sudah terdaftar > 6 bulan", value=False)
 
-    with col1:
-        ipk = st.number_input("IPK Berjalan", min_value=0.0, max_value=4.0, value=3.20, step=0.01)
-        ips_rata = st.number_input("IPS Rata-rata", min_value=0.0, max_value=4.0, value=3.15, step=0.01)
-        ips_akhir = st.number_input("IPS Semester Akhir", min_value=0.0, max_value=4.0, value=3.10, step=0.01)
+        feature_dict = extract_url_features(url_input, ssl_trusted, old_domain)
+        with st.expander("Lihat Fitur yang Diekstrak dari URL"):
+            st.dataframe(pd.DataFrame([feature_dict]), use_container_width=True)
+    else:
+        st.write("Atur indikator teknis utama (`-1` = Indikator Phishing, `0` = Mencurigakan, `1` = Aman):")
+        feature_dict = {col: 1 for col in FEATURE_COLS}
+        c1, c2, c3 = st.columns(3)
+        with c1:
+            feature_dict["SSLfinal_State"] = st.selectbox("SSL Final State", [-1, 0, 1], index=0)
+            feature_dict["URL_of_Anchor"] = st.selectbox("URL of Anchor", [-1, 0, 1], index=0)
+            feature_dict["Prefix_Suffix"] = st.selectbox("Prefix-Suffix (-) di Domain", [-1, 1], index=0)
+        with c2:
+            feature_dict["having_Sub_Domain"] = st.selectbox("Sub-domain Berlebihan", [-1, 0, 1], index=1)
+            feature_dict["web_traffic"] = st.selectbox("Web Traffic Rank", [-1, 0, 1], index=0)
+            feature_dict["age_of_domain"] = st.selectbox("Umur Domain", [-1, 1], index=0)
+        with c3:
+            feature_dict["Request_URL"] = st.selectbox("External Request URL", [-1, 1], index=0)
+            feature_dict["Links_in_tags"] = st.selectbox("Links in Script/Meta Tags", [-1, 0, 1], index=1)
+            feature_dict["having_IP_Address"] = st.selectbox("URL Memakai IP Address", [-1, 1], index=1)
 
-    with col2:
-        ips_tren = st.number_input("Tren Nilai IPS (Semester Akhir - Rata-rata)", min_value=-4.0, max_value=4.0, value=float(round(ips_akhir - ips_rata, 2)), step=0.01)
-        mk_tidak_lulus = st.number_input("Mata Kuliah Tidak Lulus", min_value=0, max_value=20, value=1, step=1)
-        jumlah_cuti = st.number_input("Jumlah Cuti Akademik (Semester)", min_value=0, max_value=4, value=0, step=1)
-
-    with col3:
-        jumlah_semester = st.number_input("Jumlah Semester Ditempuh", min_value=1, max_value=14, value=8, step=1)
-        pekerjaan = st.selectbox("Pekerjaan Sambil Kuliah", ["Tidak", "Ya"])
-        kehadiran = st.selectbox("Kategori Kehadiran", ["Tinggi", "Sedang", "Rendah"])
-
-    pekerjaan_enc = 1 if pekerjaan == "Ya" else 0
-    kehadiran_map = {"Rendah": 0, "Sedang": 1, "Tinggi": 2}
-    kehadiran_enc = kehadiran_map[kehadiran]
-
-    input_df = pd.DataFrame([{
-        "IPK": ipk,
-        "Mata Kuliah Tidak Lulus": mk_tidak_lulus,
-        "Jumlah Cuti Akademik": jumlah_cuti,
-        "Pekerjaan Sambil Kuliah": pekerjaan_enc,
-        "Jumlah Semester": jumlah_semester,
-        "IPS Rata-rata": ips_rata,
-        "IPS Semester Akhir": ips_akhir,
-        "IPS Tren": ips_tren,
-        "Kategori Kehadiran": kehadiran_enc
-    }])
+    input_df = pd.DataFrame([feature_dict])[FEATURE_COLS]
 
     st.markdown("---")
     available_models = get_available_models()
 
     if available_models:
-        selected_model_name = st.selectbox("Pilih Model untuk Prediksi:", list(available_models.keys()))
+        selected_model_name = st.selectbox("Pilih Model Klasifikasi:", list(available_models.keys()))
         selected_model = available_models[selected_model_name]
 
-        if st.button("Jalankan Prediksi", type="primary"):
-            scaler = load_scaler()
+        if st.button("Analisis Keamanan URL", type="primary"):
             data_to_predict = input_df
             if "KNN" in selected_model_name or "Logistic" in selected_model_name:
-                if scaler:
+                scaler = load_scaler()
+                if scaler is not None:
                     data_to_predict = scaler.transform(input_df)
 
-            pred = selected_model.predict(data_to_predict)[0]
-            prob = None
-            if hasattr(selected_model, "predict_proba"):
-                prob = selected_model.predict_proba(data_to_predict)[0]
+            pred = int(selected_model.predict(data_to_predict)[0])
+            prob = selected_model.predict_proba(data_to_predict)[0] if hasattr(selected_model, "predict_proba") else None
 
-            col_res1, col_res2 = st.columns(2)
-            with col_res1:
+            col_r1, col_r2 = st.columns(2)
+            with col_r1:
                 if pred == 1:
-                    st.success("### Status Prediksi: LULUS (Graduate)")
-                    st.write("Mahasiswa diprediksi memiliki rekam jejak akademik yang aman untuk menyelesaikan studi.")
+                    st.error("### Status: TERINDIKASI PHISHING ⚠️")
+                    st.write("URL memiliki pola karakteristik yang menyerupai situs penipuan/pencurian data.")
                 else:
-                    st.error("### Status Prediksi: BERISIKO DROPOUT")
-                    st.write("Terdeteksi indikasi risiko putus studi / ketidaksesuaian kelulusan akademik.")
+                    st.success("### Status: LEGITIMATE (AMAN) ✅")
+                    st.write("URL tidak menunjukkan pola anomali utama dari situs phishing.")
 
-            with col_res2:
+            with col_r2:
                 if prob is not None:
-                    prob_grad = prob[1] * 100
-                    prob_drop = prob[0] * 100
-                    st.metric("Peluang Lulus", f"{prob_grad:.1f}%")
-                    st.metric("Peluang Dropout", f"{prob_drop:.1f}%")
-
-            st.markdown("#### Rekomendasi Tindak Lanjut Akademik:")
-            if pred == 1:
-                st.info("Pertahankan ritme akademik dan monitoring SKS secara berkala hingga tugas akhir.")
-            else:
-                st.warning("Perlu evaluasi intensif: jadwalkan bimbingan DPA, periksa tunggakan mata kuliah wajib, dan pantau kehadiran perkuliahan.")
+                    st.metric("Probabilitas Phishing", f"{prob[1] * 100:.1f}%")
+                    st.metric("Probabilitas Aman", f"{prob[0] * 100:.1f}%")
     else:
-        st.info("Model klasifikasi (.pkl) belum tersedia di folder `models/`. Selesaikan proses pelatihan model di folder `notebooks/` terlebih dahulu untuk mengaktifkan fitur prediksi interaktif.")
+        st.info("Model klasifikasi (.pkl) belum tersedia di folder `models/`. Selesaikan tahap modeling di `notebooks/` untuk mengaktifkan prediksi.")
 
 with tab2:
-    st.subheader("Leaderboard Komparasi 5 Algoritma Klasifikasi")
-    st.write("Perbandingan performa model pada data uji (X_test: 20.000 sampel data):")
-
-    dummy_leaderboard = pd.DataFrame([
-        {"Algoritma": "Decision Tree (CART)", "PIC": "Laura", "Accuracy": "-", "Precision": "-", "Recall (Dropout)": "-", "F1-Score": "-", "ROC-AUC": "-"},
-        {"Algoritma": "Random Forest", "PIC": "Wawa", "Accuracy": "-", "Precision": "-", "Recall (Dropout)": "-", "F1-Score": "-", "ROC-AUC": "-"},
-        {"Algoritma": "Naive Bayes (Gaussian)", "PIC": "Gisca", "Accuracy": "-", "Precision": "-", "Recall (Dropout)": "-", "F1-Score": "-", "ROC-AUC": "-"},
-        {"Algoritma": "K-Nearest Neighbors (KNN)", "PIC": "Irfan", "Accuracy": "-", "Precision": "-", "Recall (Dropout)": "-", "F1-Score": "-", "ROC-AUC": "-"},
-        {"Algoritma": "Logistic Regression", "PIC": "Rapip", "Accuracy": "-", "Precision": "-", "Recall (Dropout)": "-", "F1-Score": "-", "ROC-AUC": "-"}
-    ])
-    st.dataframe(dummy_leaderboard, use_container_width=True)
-    st.caption("Nilai metrik akan diperbarui secara otomatis setelah tahap evaluasi mandiri selesai dikompilasi oleh Gisca di folder `evaluation/`.")
+    st.subheader("Leaderboard Komparasi 5 Algoritma")
+    metric_files = sorted(EVAL_DIR.glob("*metrics*.json"))
+    if metric_files:
+        rows = []
+        for mf in metric_files:
+            with open(mf, "r", encoding="utf-8") as f:
+                rows.append(json.load(f))
+        st.dataframe(pd.DataFrame(rows), use_container_width=True)
+    else:
+        placeholder = pd.DataFrame([
+            {"Algoritma": "Decision Tree (CART)", "PIC": "Laura", "Accuracy": "-", "Recall (Phishing)": "-", "ROC-AUC": "-"},
+            {"Algoritma": "Random Forest", "PIC": "Wawa", "Accuracy": "-", "Recall (Phishing)": "-", "ROC-AUC": "-"},
+            {"Algoritma": "Naive Bayes", "PIC": "Gisca", "Accuracy": "-", "Recall (Phishing)": "-", "ROC-AUC": "-"},
+            {"Algoritma": "K-Nearest Neighbors (KNN)", "PIC": "Irfan", "Accuracy": "-", "Recall (Phishing)": "-", "ROC-AUC": "-"},
+            {"Algoritma": "Logistic Regression", "PIC": "Rapip", "Accuracy": "-", "Recall (Phishing)": "-", "ROC-AUC": "-"},
+        ])
+        st.dataframe(placeholder, use_container_width=True)
 
 with tab3:
     st.subheader("Tentang Proyek Team-Based Project (TBP)")
     st.markdown("""
-    **Mata Kuliah:** Data Mining (Informatika UNS - Semester 5)  
-    **Kelompok 4:**
-    - Laura (Project Lead & Data Prep) — *Decision Tree*
-    - Wawa (Feature Engineer) — *Random Forest*
-    - Gisca (Evaluator & Benchmark) — *Naive Bayes*
-    - Irfan (Deployment Engineer) — *K-Nearest Neighbors & Streamlit*
-    - Rapip (Business Analyst & Report) — *Logistic Regression*
-    
-    **Tujuan Proyek:**  
-    Membangun model machine learning komparatif untuk mendeteksi risiko putus studi mahasiswa secara dini (*Early Warning System*) serta mengemasnya ke dalam prototipe dashboard interaktif.
+    **Topik:** Sistem Deteksi Situs Web Phishing Berbasis Data Mining  
+    **Dataset:** UCI Machine Learning Repository — Phishing Websites (11.055 baris mentah $\\rightarrow$ 5.849 baris unik setelah deduplikasi, 30 fitur).  
+    **Pembagian Tim Kelompok 4:**
+    - **Laura:** Decision Tree (CART)
+    - **Wawa:** Random Forest
+    - **Gisca:** Naive Bayes & Evaluasi Gabungan
+    - **Irfan:** K-Nearest Neighbors (KNN) & Dashboard Streamlit
+    - **Rapip:** Logistic Regression & Laporan Akhir
     """)

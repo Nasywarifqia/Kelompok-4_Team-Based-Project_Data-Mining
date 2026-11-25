@@ -1,6 +1,6 @@
 # Model Storage (.pkl)
 
-Folder ini menyimpan model hasil pelatihan dari kelima algoritma yang diteliti.
+Folder ini menyimpan model terlatih dari kelima algoritma deteksi situs web *phishing*.
 
 ## Standar Penamaan File
 - `decision_tree_model.pkl` (Laura)
@@ -9,12 +9,4 @@ Folder ini menyimpan model hasil pelatihan dari kelima algoritma yang diteliti.
 - `knn_model.pkl` (Irfan)
 - `logistic_regression_model.pkl` (Rapip)
 
-## Cara Menyimpan Model
-```python
-import joblib
-
-# Contoh menyimpan model
-joblib.dump(model, '../models/nama_model.pkl')
-```
-
-Model dengan performa terbaik (*Best Model*) dari komparasi di folder `evaluation/` akan dimuat oleh aplikasi Streamlit di folder `app/`.
+Model terbaik dari evaluasi tim akan dimuat otomatis oleh aplikasi Streamlit di folder `app/`.
