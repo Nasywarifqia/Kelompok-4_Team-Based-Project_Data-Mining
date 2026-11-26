@@ -1,0 +1,4 @@
+Peringkat,Model,PIC,Accuracy,Precision (Phishing),Recall (Phishing),F1-Score (Phishing),ROC-AUC,False Negative,False Positive,Waktu Prediksi (s)
+1,K-Nearest Neighbors,Irfan,0.9205,0.9168,0.9305,0.9236,0.9758,42,51,0.0256
+2,Logistic Regression,Rapip,0.9162,0.9217,0.9156,0.9186,0.9776,51,47,0.0008
+3,Naive Bayes,Gisca,0.9256,0.9434,0.9106,0.9267,0.9799,54,33,0.0095

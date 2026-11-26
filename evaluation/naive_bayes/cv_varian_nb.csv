@@ -1,0 +1,4 @@
+Varian,Accuracy,Precision,Recall,F1,ROC_AUC
+GaussianNB,0.6625,0.6049,0.9988,0.7534,0.9649
+BernoulliNB,0.8989,0.8921,0.9151,0.9034,0.9592
+CategoricalNB,0.9288,0.9401,0.9209,0.9303,0.981
