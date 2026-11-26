@@ -1,0 +1,16 @@
+{
+  "feature_values": {
+    "-1": "Phishing indicator",
+    "0": "Suspicious",
+    "1": "Legitimate indicator"
+  },
+  "target_mapping": {
+    "0": "Legitimate (Aman)",
+    "1": "Phishing (Berbahaya)"
+  },
+  "raw_rows": 11055,
+  "duplicates_removed": 5206,
+  "unique_rows": 5849,
+  "random_state": 42,
+  "test_size": 0.2
+}

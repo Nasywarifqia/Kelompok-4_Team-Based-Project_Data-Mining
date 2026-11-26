@@ -1,9 +1,0 @@
-Data mentah: (100000, 10)
-X_train: (80000, 9) | X_test: (20000, 9)
-Proporsi target train: {0: 0.5004, 1: 0.4996}
-Proporsi target test : {0: 0.5004, 1: 0.4996}
-MD5 X_train.csv: a082607c430d44f0dcb3993748f8c6a6
-MD5 X_test.csv: 4127b1a07685e0f73a400e51bdafb12c
-MD5 y_train.csv: f3d30dd28c1a8470aa98b1b58b34f6f1
-MD5 y_test.csv: 67030176445e89021fc6ee58ee17bbbe
-Selesai. File tersimpan di folder: /mnt/attach/project-files/tbp-kelulusan/preprocessing/output

@@ -2,23 +2,16 @@
 
 **Penanggung Jawab:** Irfan (Anggota 4 - Deployment Engineer)
 
-Folder ini berisi kode sumber aplikasi web dashboard interaktif untuk sistem peringatan dini (*Early Warning System*) kelulusan mahasiswa.
+Folder ini berisi kode sumber aplikasi web dashboard interaktif untuk **Sistem Deteksi Situs Web Phishing**.
 
 ## Cara Menjalankan Aplikasi
-1. Buka terminal di folder ini:
-   ```bash
-   cd app
-   ```
-2. Pastikan dependencies telah terpasang:
-   ```bash
-   pip install -r requirements.txt
-   ```
-3. Jalankan aplikasi Streamlit:
-   ```bash
-   streamlit run app.py
-   ```
+```bash
+cd app
+pip install -r requirements.txt
+streamlit run app.py
+```
 
 ## Fitur Utama Aplikasi
-1. **Prediksi Interaktif:** Form input data profil mahasiswa untuk memprediksi status kelulusan (Lulus / Berisiko Dropout) beserta skor probabilitas dan rekomendasi akademik.
-2. **Komparasi 5 Algoritma:** Tampilan visual tabel metrik performa (*Accuracy, Precision, Recall, F1, ROC-AUC*) dan grafik perbandingan 5 algoritma.
-3. **Eksplorasi Data:** Ringkasan dataset dan statistik deskriptif.
+1. **Cek URL Otomatis & Simulasi Fitur:** Pengguna dapat menempelkan alamat URL untuk ekstraksi fitur otomatis (atau menyetel 30 indikator teknis secara manual) lalu melihat hasil deteksi (*Legitimate* vs *Phishing*), probabilitas risiko, dan rekomendasi keamanan.
+2. **Komparasi 5 Algoritma:** Tabel *Leaderboard* dan perbandingan metrik (*Accuracy, Precision, Recall Phishing, F1-Score, ROC-AUC*).
+3. **Tentang Proyek:** Informasi tim dan ringkasan dataset UCI.

@@ -1,0 +1,15 @@
+{
+  "Algoritma": "K-Nearest Neighbors (k=11)",
+  "PIC": "Irfan",
+  "best_params": {
+    "n_neighbors": 11,
+    "metric": "minkowski",
+    "p": 2
+  },
+  "Accuracy": 0.9214,
+  "Precision (Phishing)": 0.9183,
+  "Recall (Phishing)": 0.9305,
+  "F1-Score (Phishing)": 0.9243,
+  "ROC-AUC": 0.976,
+  "Train Time (s)": 0.0015
+}

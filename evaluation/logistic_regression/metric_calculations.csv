@@ -1,0 +1,9 @@
+Metrik,Rumus,Substitusi,Hasil persen
+Accuracy,(TP+TN)/N,(553+519)/1170,91.62393162393163
+Precision (Phishing),TP/(TP+FP),553/(553+47),92.16666666666666
+Recall (Phishing),TP/(TP+FN),553/(553+51),91.55629139072848
+F1-Score (Phishing),2TP/(2TP+FP+FN),1106/(1106+47+51),91.86046511627907
+Specificity,TN/(TN+FP),519/(519+47),91.69611307420494
+False Positive Rate,FP/(FP+TN),47/(47+519),8.303886925795052
+False Negative Rate,FN/(FN+TP),51/(51+553),8.443708609271523
+Negative Predictive Value,TN/(TN+FN),519/(519+51),91.05263157894737

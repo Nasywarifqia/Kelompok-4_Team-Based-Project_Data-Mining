@@ -1,0 +1,15 @@
+{
+  "Algoritma": "Logistic Regression",
+  "PIC": "Rapip",
+  "best_params": {
+    "C": 10.0,
+    "solver": "lbfgs",
+    "l1_ratio": 0
+  },
+  "Accuracy": 0.9162,
+  "Precision (Phishing)": 0.9217,
+  "Recall (Phishing)": 0.9156,
+  "F1-Score (Phishing)": 0.9186,
+  "ROC-AUC": 0.9776,
+  "Train Time (s)": 0.0135
+}
