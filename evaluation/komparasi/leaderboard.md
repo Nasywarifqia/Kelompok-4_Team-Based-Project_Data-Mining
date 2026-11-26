@@ -1,0 +1,5 @@
+|   Peringkat | Model               | PIC   | Accuracy   | Precision (Phishing)   | Recall (Phishing)   | F1-Score (Phishing)   |   ROC-AUC |   False Negative |   False Positive |   Waktu Prediksi (s) |
+|------------:|:--------------------|:------|:-----------|:-----------------------|:--------------------|:----------------------|----------:|-----------------:|-----------------:|---------------------:|
+|           1 | K-Nearest Neighbors | Irfan | 92.05%     | 91.68%                 | 93.05%              | 92.36%                |    0.9758 |               42 |               51 |               0.0256 |
+|           2 | Logistic Regression | Rapip | 91.62%     | 92.17%                 | 91.56%              | 91.86%                |    0.9776 |               51 |               47 |               0.0008 |
+|           3 | Naive Bayes         | Gisca | 92.56%     | 94.34%                 | 91.06%              | 92.67%                |    0.9799 |               54 |               33 |               0.0095 |

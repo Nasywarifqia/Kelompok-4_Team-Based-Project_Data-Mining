@@ -1,0 +1,15 @@
+{
+  "Algoritma": "Naive Bayes (CategoricalNB)",
+  "PIC": "Gisca",
+  "best_params": {
+    "varian": "CategoricalNB",
+    "alpha": 2.0,
+    "encoder": "OrdinalEncoder (-1,0,1 -> 0,1,2)"
+  },
+  "Accuracy": 0.9256,
+  "Precision (Phishing)": 0.9434,
+  "Recall (Phishing)": 0.9106,
+  "F1-Score (Phishing)": 0.9267,
+  "ROC-AUC": 0.9799,
+  "Train Time (s)": 0.0198
+}
