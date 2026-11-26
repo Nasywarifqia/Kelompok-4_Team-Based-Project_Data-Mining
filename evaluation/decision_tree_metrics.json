@@ -1,0 +1,16 @@
+{
+  "Algoritma": "Decision Tree (CART)",
+  "PIC": "Laura",
+  "best_params": {
+    "criterion": "gini",
+    "max_depth": 12,
+    "min_samples_leaf": 1,
+    "min_samples_split": 10
+  },
+  "Accuracy": 0.9231,
+  "Precision (Phishing)": 0.9386,
+  "Recall (Phishing)": 0.9106,
+  "F1-Score (Phishing)": 0.9244,
+  "ROC-AUC": 0.9693,
+  "Train Time (s)": 0.0153
+}
