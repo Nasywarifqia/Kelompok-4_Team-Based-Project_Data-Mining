@@ -651,6 +651,14 @@ with tab_detect:
             features_dict, meta, anomalies, suspicious, safeties = extract_url_features(url_input, probe_res)
             run_btn = st.button("Analyze URL Risk", type="primary", use_container_width=True)
 
+            with st.expander("Signal Breakdown", expanded=True):
+                for a in anomalies:
+                    st.markdown(f'<div class="signal-row signal-danger">RISK — {a}</div>', unsafe_allow_html=True)
+                for s in suspicious:
+                    st.markdown(f'<div class="signal-row signal-warn">WARN — {s}</div>', unsafe_allow_html=True)
+                for sf in safeties[:4]:
+                    st.markdown(f'<div class="signal-row signal-ok">PASS — {sf}</div>', unsafe_allow_html=True)
+
         with col_telemetry:
             st.markdown(f"""
             <div class="panel">
@@ -665,13 +673,19 @@ with tab_detect:
             </div>
             """, unsafe_allow_html=True)
 
-            with st.expander("Signal Breakdown", expanded=True):
-                for a in anomalies:
-                    st.markdown(f'<div class="signal-row signal-danger">RISK — {a}</div>', unsafe_allow_html=True)
-                for s in suspicious:
-                    st.markdown(f'<div class="signal-row signal-warn">WARN — {s}</div>', unsafe_allow_html=True)
-                for sf in safeties[:4]:
-                    st.markdown(f'<div class="signal-row signal-ok">PASS — {sf}</div>', unsafe_allow_html=True)
+            risk_cnt = sum(1 for v in features_dict.values() if v == -1)
+            warn_cnt = sum(1 for v in features_dict.values() if v == 0)
+            safe_cnt = sum(1 for v in features_dict.values() if v == 1)
+            st.markdown(f"""
+            <div class="panel">
+                <div class="panel-label">30-Feature Balance</div>
+                <div style="display:grid; grid-template-columns:repeat(3, 1fr); gap:8px; text-align:center;">
+                    <div><div class="kpi-num" style="font-size:1.25rem; color:#9B2226;">{risk_cnt}</div><div class="kpi-note">Risk (-1)</div></div>
+                    <div><div class="kpi-num" style="font-size:1.25rem; color:#B45309;">{warn_cnt}</div><div class="kpi-note">Warn (0)</div></div>
+                    <div><div class="kpi-num" style="font-size:1.25rem; color:#1B4332;">{safe_cnt}</div><div class="kpi-note">Safe (+1)</div></div>
+                </div>
+            </div>
+            """, unsafe_allow_html=True)
     else:
         st.caption("Sesuaikan indikator UCI secara manual (-1: Phishing, 0: Mencurigakan, 1: Aman)")
         c1, c2, c3 = st.columns(3)
@@ -757,24 +771,38 @@ with tab_detect:
                 {"Class": "Legitimate", "Probability": safe_p},
                 {"Class": "Phishing", "Probability": phish_p},
             ])
-            bar = (
+            donut = (
                 alt.Chart(prob_df)
-                .mark_bar(height=22, clip=True)
+                .mark_arc(innerRadius=54, outerRadius=80)
                 .encode(
-                    x=alt.X("Probability:Q", scale=alt.Scale(domain=[0, 1]), axis=alt.Axis(format="%")),
-                    y=alt.Y("Class:N", title=None),
+                    theta=alt.Theta("Probability:Q"),
                     color=alt.Color(
                         "Class:N",
                         scale=alt.Scale(domain=["Legitimate", "Phishing"], range=["#1B4332", "#C84B31"]),
-                        legend=None,
+                        legend=alt.Legend(orient="right", title=None, labelColor="#161615"),
                     ),
                     tooltip=[alt.Tooltip("Class:N"), alt.Tooltip("Probability:Q", format=".2%")],
                 )
-                .properties(height=110, background="#FFFFFF", padding={"left": 10, "right": 10, "top": 8, "bottom": 8})
-                .configure_axis(labelColor="#161615", titleColor="#161615", gridColor="#EFECE6", domainColor="#DCD7CC")
+            )
+            center_val = f"{(phish_p if is_phish else safe_p)*100:.1f}%"
+            center_lbl = "RISK" if is_phish else "SAFE"
+            center_df = pd.DataFrame([{"val": center_val, "lbl": center_lbl}])
+            text_val = (
+                alt.Chart(center_df)
+                .mark_text(fontSize=18, fontWeight="bold", font="JetBrains Mono", color="#161615", dy=-6)
+                .encode(text="val:N")
+            )
+            text_lbl = (
+                alt.Chart(center_df)
+                .mark_text(fontSize=10, font="JetBrains Mono", color="#66635C", dy=12)
+                .encode(text="lbl:N")
+            )
+            ring = (
+                (donut + text_val + text_lbl)
+                .properties(height=190, background="#FFFFFF", padding={"left": 10, "right": 10, "top": 8, "bottom": 8})
                 .configure_view(strokeWidth=0)
             )
-            st.altair_chart(bar, use_container_width=True)
+            st.altair_chart(ring, use_container_width=True)
 
         with c_action:
             st.caption("RECOMMENDED ACTION")
@@ -868,6 +896,25 @@ with tab_benchmark:
         with c_holm:
             st.caption("PAIRED T-TEST + HOLM-BONFERRONI CORRECTION")
             st.dataframe(pd.read_csv(holm_file), use_container_width=True, hide_index=True)
+
+    cm_img = KOMPARASI_DIR / "confusion_matrix_semua.png"
+    roc_img = KOMPARASI_DIR / "roc_semua_model.png"
+    box_img = KOMPARASI_DIR / "cv_5fold_boxplot.png"
+    if cm_img.exists() or roc_img.exists() or box_img.exists():
+        st.markdown("---")
+        st.caption("DIAGNOSTIC PLOTS (CONFUSION MATRIX, ROC CURVES & 5-FOLD STABILITY)")
+        plot_choice = st.radio(
+            "Diagnostic View",
+            ["Confusion Matrix (5 Models)", "ROC-AUC Curves", "5-Fold CV Boxplot"],
+            horizontal=True,
+            label_visibility="collapsed",
+        )
+        if plot_choice == "Confusion Matrix (5 Models)" and cm_img.exists():
+            st.image(str(cm_img), use_container_width=True)
+        elif plot_choice == "ROC-AUC Curves" and roc_img.exists():
+            st.image(str(roc_img), use_container_width=True)
+        elif plot_choice == "5-Fold CV Boxplot" and box_img.exists():
+            st.image(str(box_img), use_container_width=True)
 
 
 with tab_method:
