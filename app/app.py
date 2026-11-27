@@ -627,7 +627,7 @@ with tab_detect:
             ]
             for col, (label, preset_url) in zip(p_cols, presets):
                 with col:
-                    if st.button(label, use_container_width=True):
+                    if st.button(label, width="stretch"):
                         st.session_state["url_box"] = preset_url
                         st.rerun()
 
@@ -649,7 +649,7 @@ with tab_detect:
                 }
 
             features_dict, meta, anomalies, suspicious, safeties = extract_url_features(url_input, probe_res)
-            run_btn = st.button("Analyze URL Risk", type="primary", use_container_width=True)
+            run_btn = st.button("Analyze URL Risk", type="primary", width="stretch")
 
             with st.expander("Signal Breakdown", expanded=True):
                 for a in anomalies:
@@ -711,11 +711,11 @@ with tab_detect:
             features_dict["Page_Rank"] = st.selectbox("PageRank", [1, -1])
             features_dict["Statistical_report"] = st.selectbox("Blacklist PhishTank", [1, -1])
 
-        run_btn = st.button("Analyze Feature Matrix", type="primary", use_container_width=True)
+        run_btn = st.button("Analyze Feature Matrix", type="primary", width="stretch")
 
     input_df = pd.DataFrame([features_dict])[FEATURE_COLS]
     with st.expander("Inspect 30-Feature Vector"):
-        st.dataframe(input_df, use_container_width=True, height=70)
+        st.dataframe(input_df, width="stretch", height=70)
 
     if run_btn and selected_model_name in available_models:
         info = available_models[selected_model_name]
@@ -802,7 +802,7 @@ with tab_detect:
                 .properties(height=190, background="#FFFFFF", padding={"left": 10, "right": 10, "top": 8, "bottom": 8})
                 .configure_view(strokeWidth=0)
             )
-            st.altair_chart(ring, use_container_width=True)
+            st.altair_chart(ring, width="stretch")
 
         with c_action:
             st.caption("RECOMMENDED ACTION")
@@ -857,7 +857,7 @@ with tab_benchmark:
             disp[c] = (disp[c] * 100).map("{:.2f}%".format)
         disp["ROC-AUC"] = disp["ROC-AUC"].map("{:.4f}".format)
         disp["Train Time (s)"] = disp["Train Time (s)"].map("{:.4f}s".format)
-        st.dataframe(disp, use_container_width=True, hide_index=True)
+        st.dataframe(disp, width="stretch", hide_index=True)
 
         melted = metrics_df.melt(
             id_vars=["Algoritma"],
@@ -881,7 +881,7 @@ with tab_benchmark:
             .configure_legend(labelColor="#161615", titleColor="#161615")
             .configure_view(strokeWidth=0)
         )
-        st.altair_chart(comp_chart, use_container_width=True)
+        st.altair_chart(comp_chart, width="stretch")
     else:
         st.info("Belum ada file `*_metrics.json` di folder `evaluation/`.")
 
@@ -892,10 +892,10 @@ with tab_benchmark:
         c_cv, c_holm = st.columns(2, gap="large")
         with c_cv:
             st.caption("STRATIFIED 5-FOLD CROSS-VALIDATION (5,849 SAMPLES)")
-            st.dataframe(pd.read_csv(cv_file), use_container_width=True, hide_index=True)
+            st.dataframe(pd.read_csv(cv_file), width="stretch", hide_index=True)
         with c_holm:
             st.caption("PAIRED T-TEST + HOLM-BONFERRONI CORRECTION")
-            st.dataframe(pd.read_csv(holm_file), use_container_width=True, hide_index=True)
+            st.dataframe(pd.read_csv(holm_file), width="stretch", hide_index=True)
 
     cm_img = KOMPARASI_DIR / "confusion_matrix_semua.png"
     roc_img = KOMPARASI_DIR / "roc_semua_model.png"
@@ -910,11 +910,11 @@ with tab_benchmark:
             label_visibility="collapsed",
         )
         if plot_choice == "Confusion Matrix (5 Models)" and cm_img.exists():
-            st.image(str(cm_img), use_container_width=True)
+            st.image(str(cm_img), width="stretch")
         elif plot_choice == "ROC-AUC Curves" and roc_img.exists():
-            st.image(str(roc_img), use_container_width=True)
+            st.image(str(roc_img), width="stretch")
         elif plot_choice == "5-Fold CV Boxplot" and box_img.exists():
-            st.image(str(box_img), use_container_width=True)
+            st.image(str(box_img), width="stretch")
 
 
 with tab_method:
@@ -952,7 +952,7 @@ with tab_method:
         {"Anggota": "Irfan", "Peran TBP": "Deployment Engineer", "Algoritma": "K-Nearest Neighbors (k=11)", "Fokus": "Tuning k berbasis jarak & dashboard Streamlit"},
         {"Anggota": "Rapip", "Peran TBP": "Business Analyst & Report", "Algoritma": "Logistic Regression", "Fokus": "Analisis koefisien linear & laporan akhir TBP"},
     ])
-    st.dataframe(roster_df, use_container_width=True, hide_index=True)
+    st.dataframe(roster_df, width="stretch", hide_index=True)
 
     st.markdown("---")
     st.caption("TAXONOMY OF 30 UCI SECURITY FEATURES")
