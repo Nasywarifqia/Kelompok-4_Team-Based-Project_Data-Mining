@@ -1,7 +1,11 @@
 import json
 import re
+import socket
+import ssl
+from datetime import datetime, timezone
 from pathlib import Path
 from urllib.parse import urlparse
+from urllib.request import Request, urlopen
 
 import altair as alt
 import joblib
@@ -327,7 +331,71 @@ CSS_STYLES = """
 st.markdown(CSS_STYLES, unsafe_allow_html=True)
 
 
-def extract_url_features(url: str, ssl_trusted: bool, old_domain: bool, anchor_suspicious: bool = False, sfh_external: bool = False):
+@st.cache_data(ttl=300, show_spinner=False)
+def probe_live_host(url: str) -> dict:
+    """Melakukan pemeriksaan DNS, sertifikat SSL, dan HTML ringan secara otomatis (timeout 2.5 detik)."""
+    parsed = urlparse(url.strip() if "://" in url else f"http://{url.strip()}")
+    host = parsed.netloc.split(":")[0].lower()
+    result = {
+        "reachable": False,
+        "dns_valid": False,
+        "ssl_valid": False,
+        "cert_days_old": None,
+        "external_sfh": False,
+        "suspicious_anchors": False,
+        "has_iframe": False,
+        "has_mailto": False,
+        "probe_note": "Offline / Unreachable (lexical fallback)",
+    }
+    if not host:
+        return result
+
+    try:
+        socket.getaddrinfo(host, None, proto=socket.IPPROTO_TCP)
+        result["dns_valid"] = True
+    except OSError:
+        result["probe_note"] = "DNS lookup failed (NXDOMAIN)"
+        return result
+
+    if parsed.scheme == "https":
+        try:
+            ctx = ssl.create_default_context()
+            with socket.create_connection((host, parsed.port or 443), timeout=2.5) as sock:
+                with ctx.wrap_socket(sock, server_hostname=host) as ssock:
+                    cert = ssock.getpeercert()
+                    result["ssl_valid"] = True
+                    not_before = cert.get("notBefore")
+                    if not_before:
+                        issued = datetime.strptime(not_before, "%b %d %H:%M:%S %Y %Z").replace(tzinfo=timezone.utc)
+                        result["cert_days_old"] = (datetime.now(timezone.utc) - issued).days
+        except Exception:
+            result["ssl_valid"] = False
+
+    try:
+        req = Request(parsed.geturl(), headers={"User-Agent": "Mozilla/5.0 PhishGuard/1.0"})
+        with urlopen(req, timeout=2.5) as resp:
+            result["reachable"] = True
+            ctype = resp.headers.get("Content-Type", "")
+            if "text/html" in ctype.lower():
+                html = resp.read(200_000).decode("utf-8", errors="ignore").lower()
+                result["has_iframe"] = "<iframe" in html
+                result["has_mailto"] = "mailto:" in html
+                forms = re.findall(r'<form[^>]+action=["\']([^"\']+)["\']', html)
+                if any(a.startswith("http") and host not in a for a in forms):
+                    result["external_sfh"] = True
+                anchors = re.findall(r'<a[^>]+href=["\']([^"\']+)["\']', html)
+                if anchors:
+                    ext = sum(1 for a in anchors if a.startswith("#") or "javascript:" in a or (a.startswith("http") and host not in a))
+                    if ext / len(anchors) > 0.5:
+                        result["suspicious_anchors"] = True
+        result["probe_note"] = "Live DNS + TLS/HTML verified"
+    except Exception:
+        result["probe_note"] = "DNS resolved; HTTP fetch blocked/timed out"
+
+    return result
+
+
+def extract_url_features(url: str, probe: dict):
     clean_url = url.strip()
     parsed = urlparse(clean_url if "://" in clean_url else f"http://{clean_url}")
     host = parsed.netloc.lower()
@@ -339,10 +407,9 @@ def extract_url_features(url: str, ssl_trusted: bool, old_domain: bool, anchor_s
     is_ip = bool(re.match(r"^\d{1,3}(\.\d{1,3}){3}$", host_clean))
     if is_ip:
         features["having_IP_Address"] = -1
-        features["DNSRecord"] = -1
         anomalies.append("Hostname menggunakan alamat IP langsung")
     else:
-        safeties.append("Hostname menggunakan nama domain valid")
+        safeties.append("Hostname menggunakan nama domain")
 
     url_len = len(clean_url)
     if url_len >= 75:
@@ -394,32 +461,45 @@ def extract_url_features(url: str, ssl_trusted: bool, old_domain: bool, anchor_s
         features["HTTPS_token"] = -1
         anomalies.append("Token 'https' disisipkan pada nama domain")
 
-    if parsed.scheme == "https" and ssl_trusted:
+    if parsed.scheme == "https" and probe.get("ssl_valid"):
         features["SSLfinal_State"] = 1
-        safeties.append("HTTPS aktif dengan sertifikat CA valid")
+        safeties.append("TLS/SSL aktif & sertifikat CA valid (live)")
     elif parsed.scheme == "https":
         features["SSLfinal_State"] = 0
-        suspicious.append("HTTPS aktif namun CA belum terverifikasi")
+        suspicious.append("HTTPS namun sertifikat CA tidak terverifikasi")
     else:
         features["SSLfinal_State"] = -1
-        anomalies.append("Koneksi HTTP tanpa enkripsi TLS/SSL")
+        anomalies.append("Protokol HTTP tanpa enkripsi TLS/SSL")
 
-    if not old_domain:
-        for col in ("age_of_domain", "Domain_registeration_length", "web_traffic", "Page_Rank", "Google_Index", "Links_pointing_to_page"):
-            features[col] = -1
-        anomalies.append("Registrasi domain baru (< 6 bulan)")
+    if not probe.get("dns_valid"):
+        features["DNSRecord"] = -1
+        features["age_of_domain"] = -1
+        features["Domain_registeration_length"] = -1
+        features["web_traffic"] = -1
+        features["Page_Rank"] = -1
+        features["Google_Index"] = -1
+        anomalies.append("DNS tidak teresolusi / domain tidak aktif")
     else:
-        for col in ("age_of_domain", "Domain_registeration_length", "web_traffic", "Page_Rank", "Google_Index", "Links_pointing_to_page"):
-            features[col] = 1
-        safeties.append("Domain memiliki rekam jejak usia matang")
+        features["DNSRecord"] = 1
+        safeties.append("DNS record aktif terverifikasi")
+        if not probe.get("ssl_valid"):
+            features["age_of_domain"] = -1
+            features["Domain_registeration_length"] = -1
+            features["web_traffic"] = 0
+            suspicious.append("Tanpa bukti sertifikat TLS jangka panjang")
 
-    if anchor_suspicious:
+    if probe.get("suspicious_anchors"):
         features["URL_of_Anchor"] = -1
-        anomalies.append("Anchor tag mengarah ke luar domain")
-
-    if sfh_external:
+        anomalies.append("Mayoritas tautan anchor mengarah ke luar")
+    if probe.get("external_sfh"):
         features["SFH"] = -1
         anomalies.append("Form handler mengarah ke server eksternal")
+    if probe.get("has_iframe"):
+        features["Iframe"] = -1
+        anomalies.append("Halaman memuat tag <iframe>")
+    if probe.get("has_mailto"):
+        features["Submitting_to_email"] = -1
+        anomalies.append("Form menggunakan skema mailto:")
 
     if parsed.port and parsed.port not in (80, 443, 8080):
         features["port"] = -1
@@ -430,7 +510,7 @@ def extract_url_features(url: str, ssl_trusted: bool, old_domain: bool, anchor_s
         "host": host or "-",
         "length": f"{url_len} chars",
         "host_type": "Raw IPv4" if is_ip else "Domain Name",
-        "shortener": "Detected" if is_shortener else "None",
+        "probe_status": probe.get("probe_note", "-"),
     }
     return features, meta, anomalies, suspicious, safeties
 
@@ -498,7 +578,7 @@ st.markdown(f"""
     <div>
         <div class="masthead-kicker">Kelompok 4 • Informatika UNS • UCI Phishing Benchmark</div>
         <h1 class="masthead-title">PhishGuard URL Inspector</h1>
-        <p class="masthead-sub">Sistem klasifikasi keamanan situs web berbasis 30 indikator leksikal, sertifikat SSL, dan reputasi domain.</p>
+        <p class="masthead-sub">Inspeksi keamanan URL otomatis (leksikal, DNS/TLS live probe, dan 30 fitur standar UCI).</p>
     </div>
     <div class="masthead-stat">
         <div>Dataset: <strong>5,849 unique URLs</strong> (80:20 split)</div>
@@ -518,7 +598,7 @@ with tab_detect:
     with top_l:
         input_mode = st.radio(
             "Mode Input",
-            ["URL Lexical Extractor", "30-Feature Manual Matrix"],
+            ["Live URL Inspector", "30-Feature Manual Matrix"],
             horizontal=True,
             label_visibility="collapsed",
         )
@@ -530,24 +610,9 @@ with tab_detect:
     features_dict = {col: 1 for col in FEATURE_COLS}
     anomalies, suspicious, safeties, meta = [], [], [], {}
 
-    if input_mode == "URL Lexical Extractor":
-        defaults = {
-            "url_input": "http://login-verifikasi-bca-sekuriti.xyz/auth?user=@test&update=1",
-            "ssl_trusted": False,
-            "old_domain": False,
-            "anchor_suspicious": True,
-            "sfh_external": True,
-        }
-        for k, v in defaults.items():
-            if k not in st.session_state:
-                st.session_state[k] = v
-
-        def set_preset(url, ssl, old, anchor, sfh):
-            st.session_state["url_input"] = url
-            st.session_state["ssl_trusted"] = ssl
-            st.session_state["old_domain"] = old
-            st.session_state["anchor_suspicious"] = anchor
-            st.session_state["sfh_external"] = sfh
+    if input_mode == "Live URL Inspector":
+        if "url_box" not in st.session_state:
+            st.session_state["url_box"] = "http://login-verifikasi-bca-sekuriti.xyz/auth?user=@test&update=1"
 
         col_main, col_telemetry = st.columns([6, 4], gap="large")
 
@@ -555,49 +620,47 @@ with tab_detect:
             st.caption("PRESET UJI CEPAT")
             p_cols = st.columns(4)
             presets = [
-                ("Bank Spoofing", "http://login-verifikasi-bca-sekuriti.xyz/auth?user=@test&update=1", False, False, True, True),
-                ("Google Safe", "https://www.google.com/search?q=cybersecurity", True, True, False, False),
-                ("Shortener", "https://bit.ly/update-keamanan-akun-2026", False, False, True, False),
-                ("Raw IP Host", "http://192.168.1.105/paypal/update-billing.php?id=928", False, False, True, True),
+                ("Bank Spoofing", "http://login-verifikasi-bca-sekuriti.xyz/auth?user=@test&update=1"),
+                ("Google Safe", "https://www.google.com"),
+                ("Shortener", "https://bit.ly/update-keamanan-akun-2026"),
+                ("Raw IP Host", "http://192.168.1.105/paypal/update-billing.php?id=928"),
             ]
-            for col, (label, u, s, o, a, sf) in zip(p_cols, presets):
+            for col, (label, preset_url) in zip(p_cols, presets):
                 with col:
                     if st.button(label, use_container_width=True):
-                        set_preset(u, s, o, a, sf)
+                        st.session_state["url_box"] = preset_url
                         st.rerun()
 
             url_input = st.text_input(
                 "Target URL",
-                value=st.session_state["url_input"],
+                key="url_box",
                 placeholder="https://example.com/login",
             )
 
-            c_opt1, c_opt2 = st.columns(2)
-            with c_opt1:
-                ssl_trusted = st.checkbox("SSL terverifikasi CA terpercaya", value=st.session_state["ssl_trusted"])
-            with c_opt2:
-                old_domain = st.checkbox("Umur domain > 6 bulan", value=st.session_state["old_domain"])
+            live_probe_enabled = st.checkbox("Aktifkan Live DNS / TLS / HTML Probe otomatis", value=True)
+            if live_probe_enabled:
+                probe_res = probe_live_host(url_input)
+            else:
+                probe_res = {
+                    "reachable": False,
+                    "dns_valid": False,
+                    "ssl_valid": False,
+                    "probe_note": "Live probe disabled (lexical only)",
+                }
 
-            with st.expander("Parameter Lanjutan Halaman (HTML / Form)", expanded=False):
-                anchor_suspicious = st.checkbox("Anchor (<a>) mengarah ke domain eksternal", value=st.session_state["anchor_suspicious"])
-                sfh_external = st.checkbox("Server Form Handler (SFH) ke server luar", value=st.session_state["sfh_external"])
-
-            features_dict, meta, anomalies, suspicious, safeties = extract_url_features(
-                url_input, ssl_trusted, old_domain, anchor_suspicious, sfh_external
-            )
-
+            features_dict, meta, anomalies, suspicious, safeties = extract_url_features(url_input, probe_res)
             run_btn = st.button("Analyze URL Risk", type="primary", use_container_width=True)
 
         with col_telemetry:
             st.markdown(f"""
             <div class="panel">
-                <div class="panel-label">Lexical Telemetry</div>
+                <div class="panel-label">Telemetry & Live Probe</div>
                 <table class="telemetry-table">
                     <tr><td class="telemetry-key">Protocol</td><td class="telemetry-val">{meta.get('scheme', '-')}</td></tr>
                     <tr><td class="telemetry-key">Host</td><td class="telemetry-val">{meta.get('host', '-')}</td></tr>
                     <tr><td class="telemetry-key">Length</td><td class="telemetry-val">{meta.get('length', '-')}</td></tr>
                     <tr><td class="telemetry-key">Host Format</td><td class="telemetry-val">{meta.get('host_type', '-')}</td></tr>
-                    <tr><td class="telemetry-key">Shortener</td><td class="telemetry-val">{meta.get('shortener', '-')}</td></tr>
+                    <tr><td class="telemetry-key">Probe Status</td><td class="telemetry-val">{meta.get('probe_status', '-')}</td></tr>
                 </table>
             </div>
             """, unsafe_allow_html=True)
@@ -696,7 +759,7 @@ with tab_detect:
             ])
             bar = (
                 alt.Chart(prob_df)
-                .mark_bar(height=22)
+                .mark_bar(height=22, clip=True)
                 .encode(
                     x=alt.X("Probability:Q", scale=alt.Scale(domain=[0, 1]), axis=alt.Axis(format="%")),
                     y=alt.Y("Class:N", title=None),
@@ -707,7 +770,9 @@ with tab_detect:
                     ),
                     tooltip=[alt.Tooltip("Class:N"), alt.Tooltip("Probability:Q", format=".2%")],
                 )
-                .properties(height=110)
+                .properties(height=110, background="#FFFFFF", padding={"left": 10, "right": 10, "top": 8, "bottom": 8})
+                .configure_axis(labelColor="#161615", titleColor="#161615", gridColor="#EFECE6", domainColor="#DCD7CC")
+                .configure_view(strokeWidth=0)
             )
             st.altair_chart(bar, use_container_width=True)
 
@@ -775,15 +840,18 @@ with tab_benchmark:
         palette = ["#161615", "#C84B31", "#1B4332", "#9A6B4C", "#66635C"]
         comp_chart = (
             alt.Chart(melted)
-            .mark_bar()
+            .mark_bar(clip=True)
             .encode(
-                x=alt.X("Metric:N", title=None, axis=alt.Axis(labelAngle=0)),
+                x=alt.X("Metric:N", title=None, axis=alt.Axis(labelAngle=0, labelPadding=8)),
                 y=alt.Y("Score:Q", scale=alt.Scale(domain=[0.85, 1.0]), title="Score"),
                 color=alt.Color("Algoritma:N", scale=alt.Scale(range=palette)),
                 xOffset="Algoritma:N",
                 tooltip=["Algoritma:N", "Metric:N", alt.Tooltip("Score:Q", format=".4f")],
             )
-            .properties(height=270)
+            .properties(height=290, background="#FFFFFF", padding={"left": 14, "right": 14, "top": 12, "bottom": 12})
+            .configure_axis(labelColor="#161615", titleColor="#161615", gridColor="#EFECE6", domainColor="#DCD7CC")
+            .configure_legend(labelColor="#161615", titleColor="#161615")
+            .configure_view(strokeWidth=0)
         )
         st.altair_chart(comp_chart, use_container_width=True)
     else:
