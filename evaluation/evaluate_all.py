@@ -99,7 +99,14 @@ def main():
         md[c] = (md[c] * 100).map("{:.2f}%".format)
     md["ROC-AUC"] = md["ROC-AUC"].map("{:.4f}".format)
     md["Waktu Prediksi (s)"] = md["Waktu Prediksi (s)"].map("{:.4f}".format)
-    (OUT_DIR / "leaderboard.md").write_text(md.to_markdown(index=False), encoding="utf-8")
+    try:
+        md_text = md.to_markdown(index=False)
+    except ImportError:
+        headers = " | ".join(md.columns)
+        sep = " | ".join("---" for _ in md.columns)
+        body = "\n".join(" | ".join(str(v) for v in row) for row in md.itertuples(index=False))
+        md_text = f"| {headers} |\n| {sep} |\n" + "\n".join(f"| {line} |" for line in body.splitlines())
+    (OUT_DIR / "leaderboard.md").write_text(md_text, encoding="utf-8")
 
     print("\nLEADERBOARD (diurutkan Recall Phishing -> F1 -> ROC-AUC)")
     print(lb.round(4).to_string(index=False))

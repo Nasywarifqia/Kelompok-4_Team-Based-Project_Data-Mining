@@ -1,4 +1,6 @@
 Peringkat,Model,PIC,Accuracy,Precision (Phishing),Recall (Phishing),F1-Score (Phishing),ROC-AUC,False Negative,False Positive,Waktu Prediksi (s)
-1,K-Nearest Neighbors,Irfan,0.9205,0.9168,0.9305,0.9236,0.9758,42,51,0.0256
-2,Logistic Regression,Rapip,0.9162,0.9217,0.9156,0.9186,0.9776,51,47,0.0008
-3,Naive Bayes,Gisca,0.9256,0.9434,0.9106,0.9267,0.9799,54,33,0.0095
+1,K-Nearest Neighbors,Irfan,0.9214,0.9183,0.9305,0.9243,0.976,42,50,1.5173
+2,Random Forest,Wawa,0.9419,0.9573,0.9288,0.9429,0.9853,43,25,0.1458
+3,Logistic Regression,Rapip,0.9162,0.9217,0.9156,0.9186,0.9776,51,47,0.0004
+4,Naive Bayes,Gisca,0.9256,0.9434,0.9106,0.9267,0.9799,54,33,0.0116
+5,Decision Tree (CART),Laura,0.9231,0.9386,0.9106,0.9244,0.9693,54,36,0.0027
