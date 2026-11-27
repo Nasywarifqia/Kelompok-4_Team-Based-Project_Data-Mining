@@ -9,8 +9,7 @@ import pandas as pd
 import streamlit as st
 
 st.set_page_config(
-    page_title="Phishing Shield — Sistem Deteksi Keamanan URL",
-    page_icon="🛡️",
+    page_title="PhishGuard — URL Threat Inspection",
     layout="wide",
     initial_sidebar_state="collapsed",
 )
@@ -19,6 +18,7 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 MODEL_DIR = BASE_DIR / "models"
 DATA_DIR = BASE_DIR / "dataset" / "output"
 EVAL_DIR = BASE_DIR / "evaluation"
+KOMPARASI_DIR = EVAL_DIR / "komparasi"
 
 FEATURE_COLS = [
     "having_IP_Address", "URL_Length", "Shortining_Service", "having_At_Symbol",
@@ -35,188 +35,291 @@ SHORTENERS = ("bit.ly", "goo.gl", "tinyurl.com", "ow.ly", "t.co", "is.gd", "buff
 
 CSS_STYLES = """
 <style>
-    @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap');
+    @import url('https://fonts.googleapis.com/css2?family=Instrument+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap');
 
     html, body, [class*="css"] {
-        font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, sans-serif;
+        font-family: 'Instrument Sans', -apple-system, BlinkMacSystemFont, sans-serif;
+        color: #161615;
     }
 
-    code, pre {
+    code, pre, .mono {
         font-family: 'JetBrains Mono', monospace !important;
-    }
-
-    .main .block-container {
-        padding-top: 1.5rem;
-        padding-bottom: 2.5rem;
-        max-width: 1220px;
-    }
-
-    .app-header {
-        background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
-        border: 1px solid #334155;
-        border-radius: 16px;
-        padding: 24px 28px;
-        margin-bottom: 20px;
-        color: #ffffff;
-        box-shadow: 0 4px 20px -2px rgba(15, 23, 42, 0.15);
-    }
-
-    .app-header h1 {
-        font-size: 1.7rem;
-        font-weight: 700;
-        letter-spacing: -0.02em;
-        margin: 0 0 6px 0;
-        color: #ffffff;
-    }
-
-    .app-header p {
-        color: #94a3b8;
-        font-size: 0.9rem;
-        margin: 0;
-        line-height: 1.5;
-    }
-
-    .tag-pill {
-        display: inline-flex;
-        align-items: center;
-        gap: 6px;
-        padding: 4px 10px;
-        border-radius: 9999px;
-        font-size: 0.725rem;
-        font-weight: 600;
-        letter-spacing: 0.02em;
-    }
-    .tag-cyan { background: rgba(14, 165, 233, 0.15); color: #38bdf8; border: 1px solid rgba(56, 189, 248, 0.3); }
-    .tag-emerald { background: rgba(16, 185, 129, 0.15); color: #34d399; border: 1px solid rgba(52, 211, 153, 0.3); }
-    .tag-slate { background: rgba(148, 163, 184, 0.15); color: #cbd5e1; border: 1px solid rgba(203, 213, 225, 0.2); }
-
-    .card {
-        background: #ffffff;
-        border: 1px solid #e2e8f0;
-        border-radius: 12px;
-        padding: 18px 20px;
-        margin-bottom: 16px;
-        box-shadow: 0 1px 3px rgba(0, 0, 0, 0.03);
-    }
-
-    .card-title {
-        font-size: 0.875rem;
-        font-weight: 700;
-        color: #0f172a;
-        margin-bottom: 12px;
-        display: flex;
-        align-items: center;
-        gap: 8px;
-    }
-
-    .verdict-banner-phishing {
-        background: linear-gradient(135deg, #fef2f2 0%, #fff1f2 100%);
-        border: 2px solid #ef4444;
-        border-radius: 14px;
-        padding: 22px;
-        margin-bottom: 20px;
-        box-shadow: 0 4px 14px rgba(239, 68, 68, 0.1);
-    }
-
-    .verdict-banner-safe {
-        background: linear-gradient(135deg, #ecfdf5 0%, #f0fdf4 100%);
-        border: 2px solid #10b981;
-        border-radius: 14px;
-        padding: 22px;
-        margin-bottom: 20px;
-        box-shadow: 0 4px 14px rgba(16, 185, 129, 0.1);
-    }
-
-    .status-badge {
-        display: inline-flex;
-        align-items: center;
-        padding: 4px 12px;
-        border-radius: 9999px;
-        font-size: 0.8rem;
-        font-weight: 700;
-        text-transform: uppercase;
-        letter-spacing: 0.04em;
-    }
-    .status-badge-phishing { background: #ef4444; color: #ffffff; }
-    .status-badge-safe { background: #10b981; color: #ffffff; }
-
-    .metric-container {
-        display: flex;
-        flex-direction: column;
-        background: #f8fafc;
-        border: 1px solid #e2e8f0;
-        border-radius: 10px;
-        padding: 12px 14px;
-    }
-    .metric-label {
-        font-size: 0.72rem;
-        font-weight: 600;
-        text-transform: uppercase;
-        letter-spacing: 0.04em;
-        color: #64748b;
-        margin-bottom: 2px;
-    }
-    .metric-value {
-        font-size: 1.35rem;
-        font-weight: 700;
-        color: #0f172a;
         font-variant-numeric: tabular-nums;
     }
 
-    .signal-item {
-        display: flex;
-        align-items: center;
-        justify-content: space-between;
-        padding: 7px 11px;
-        border-radius: 7px;
-        margin-bottom: 6px;
-        font-size: 0.825rem;
+    .stApp {
+        background-color: #F7F5F0;
     }
-    .signal-danger { background: #fef2f2; border: 1px solid #fecaca; color: #991b1b; }
-    .signal-warning { background: #fffbeb; border: 1px solid #fde68a; color: #92400e; }
-    .signal-safe { background: #f0fdf4; border: 1px solid #bbf7d0; color: #166534; }
 
-    .url-inspect-grid {
-        display: grid;
-        grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
-        gap: 8px;
-        margin-top: 10px;
+    .main .block-container {
+        padding-top: 2rem;
+        padding-bottom: 3rem;
+        max-width: 1180px;
     }
-    .url-inspect-cell {
-        background: #f8fafc;
-        border: 1px solid #e2e8f0;
-        border-radius: 8px;
-        padding: 9px 11px;
+
+    .masthead {
+        display: flex;
+        justify-content: space-between;
+        align-items: flex-end;
+        flex-wrap: wrap;
+        gap: 16px;
+        padding-bottom: 20px;
+        margin-bottom: 24px;
+        border-bottom: 1px solid #DCD7CC;
     }
-    .url-inspect-cell .caption {
-        font-size: 0.7rem;
-        font-weight: 600;
+
+    .masthead-kicker {
+        font-family: 'JetBrains Mono', monospace;
+        font-size: 0.72rem;
+        font-weight: 500;
         text-transform: uppercase;
-        color: #64748b;
-        margin-bottom: 2px;
+        letter-spacing: 0.1em;
+        color: #C84B31;
+        margin-bottom: 6px;
     }
-    .url-inspect-cell .val {
-        font-size: 0.85rem;
+
+    .masthead-title {
+        font-size: 1.85rem;
+        font-weight: 700;
+        letter-spacing: -0.03em;
+        line-height: 1.15;
+        color: #161615;
+        margin: 0;
+    }
+
+    .masthead-sub {
+        font-size: 0.9rem;
+        color: #66635C;
+        margin: 6px 0 0 0;
+    }
+
+    .masthead-stat {
+        text-align: right;
+        font-family: 'JetBrains Mono', monospace;
+        font-size: 0.78rem;
+        color: #66635C;
+        line-height: 1.6;
+    }
+
+    .masthead-stat strong {
+        color: #161615;
         font-weight: 600;
-        color: #0f172a;
-        word-break: break-all;
     }
 
     .stTabs [data-baseweb="tab-list"] {
-        gap: 6px;
-        border-bottom: 1px solid #e2e8f0;
-        padding-bottom: 2px;
+        gap: 28px;
+        border-bottom: 1px solid #DCD7CC;
+        background: transparent;
+        margin-bottom: 24px;
     }
+
     .stTabs [data-baseweb="tab"] {
-        padding: 7px 14px;
-        border-radius: 8px;
+        padding: 10px 2px;
+        font-size: 0.88rem;
         font-weight: 600;
-        font-size: 0.875rem;
-        color: #64748b;
+        color: #66635C;
+        background: transparent;
+        border: none;
+        transition: color 150ms cubic-bezier(0.4, 0, 0.2, 1);
     }
+
     .stTabs [aria-selected="true"] {
-        background: #eff6ff !important;
-        color: #1d4ed8 !important;
+        color: #161615 !important;
+        border-bottom: 2px solid #C84B31 !important;
+    }
+
+    .stButton > button {
+        border-radius: 4px;
+        border: 1px solid #D5CFC4;
+        background-color: #FFFFFF;
+        color: #161615;
+        font-weight: 500;
+        font-size: 0.84rem;
+        padding: 0.45rem 0.9rem;
+        box-shadow: none !important;
+        transition: all 150ms cubic-bezier(0.4, 0, 0.2, 1);
+    }
+
+    .stButton > button:hover {
+        border-color: #161615;
+        background-color: #EFECE6;
+        color: #161615;
+    }
+
+    .stButton > button[kind="primary"] {
+        background-color: #161615;
+        border-color: #161615;
+        color: #F7F5F0;
+        font-weight: 600;
+        letter-spacing: 0.01em;
+        padding: 0.65rem 1.25rem;
+    }
+
+    .stButton > button[kind="primary"]:hover {
+        background-color: #C84B31;
+        border-color: #C84B31;
+        color: #FFFFFF;
+    }
+
+    .panel {
+        background: #FFFFFF;
+        border: 1px solid #DCD7CC;
+        border-radius: 6px;
+        padding: 20px;
+        margin-bottom: 16px;
+    }
+
+    .panel-label {
+        font-family: 'JetBrains Mono', monospace;
+        font-size: 0.7rem;
+        font-weight: 600;
+        text-transform: uppercase;
+        letter-spacing: 0.08em;
+        color: #66635C;
+        margin-bottom: 12px;
+    }
+
+    .telemetry-table {
+        width: 100%;
+        border-collapse: collapse;
+        font-size: 0.83rem;
+    }
+
+    .telemetry-table td {
+        padding: 8px 0;
+        border-bottom: 1px solid #EFECE6;
+    }
+
+    .telemetry-table tr:last-child td {
+        border-bottom: none;
+    }
+
+    .telemetry-key {
+        color: #66635C;
+        width: 42%;
+    }
+
+    .telemetry-val {
+        font-family: 'JetBrains Mono', monospace;
+        color: #161615;
+        text-align: right;
+        word-break: break-all;
+    }
+
+    .signal-row {
+        font-size: 0.82rem;
+        padding: 6px 10px;
+        margin-bottom: 6px;
+        border-radius: 4px;
+        border-left: 3px solid;
+    }
+
+    .signal-danger {
+        background: #F6EAEA;
+        border-left-color: #9B2226;
+        color: #6E1619;
+    }
+
+    .signal-warn {
+        background: #F5EFE4;
+        border-left-color: #B45309;
+        color: #7C4D00;
+    }
+
+    .signal-ok {
+        background: #E9F0EC;
+        border-left-color: #1B4332;
+        color: #1B4332;
+    }
+
+    .verdict-box {
+        background: #FFFFFF;
+        border: 1px solid #DCD7CC;
+        border-left-width: 5px;
+        border-radius: 6px;
+        padding: 24px;
+        margin: 16px 0 20px 0;
+    }
+
+    .verdict-phishing { border-left-color: #9B2226; }
+    .verdict-safe { border-left-color: #1B4332; }
+
+    .verdict-tag {
+        font-family: 'JetBrains Mono', monospace;
+        font-size: 0.72rem;
+        font-weight: 600;
+        text-transform: uppercase;
+        letter-spacing: 0.08em;
+        padding: 3px 8px;
+        border-radius: 3px;
+        display: inline-block;
+    }
+
+    .tag-phishing { background: #F6EAEA; color: #9B2226; }
+    .tag-safe { background: #E9F0EC; color: #1B4332; }
+
+    .kpi-grid {
+        display: grid;
+        grid-template-columns: repeat(4, minmax(0, 1fr));
+        border: 1px solid #DCD7CC;
+        border-radius: 6px;
+        background: #FFFFFF;
+        margin-bottom: 20px;
+    }
+
+    .kpi-cell {
+        padding: 16px 20px;
+        border-right: 1px solid #DCD7CC;
+    }
+
+    .kpi-cell:last-child {
+        border-right: none;
+    }
+
+    .kpi-label {
+        font-family: 'JetBrains Mono', monospace;
+        font-size: 0.68rem;
+        text-transform: uppercase;
+        letter-spacing: 0.08em;
+        color: #66635C;
+        margin-bottom: 6px;
+    }
+
+    .kpi-num {
+        font-family: 'JetBrains Mono', monospace;
+        font-size: 1.55rem;
+        font-weight: 600;
+        color: #161615;
+        font-variant-numeric: tabular-nums;
+    }
+
+    .kpi-note {
+        font-size: 0.76rem;
+        color: #66635C;
+        margin-top: 4px;
+    }
+
+    .step-strip {
+        display: grid;
+        grid-template-columns: repeat(4, minmax(0, 1fr));
+        gap: 0;
+        border: 1px solid #DCD7CC;
+        border-radius: 6px;
+        background: #FFFFFF;
+        margin: 12px 0 24px 0;
+    }
+
+    .step-item {
+        padding: 16px 18px;
+        border-right: 1px solid #DCD7CC;
+    }
+
+    .step-item:last-child {
+        border-right: none;
+    }
+
+    @media (max-width: 768px) {
+        .kpi-grid, .step-strip { grid-template-columns: repeat(2, 1fr); }
     }
 </style>
 """
@@ -231,9 +334,7 @@ def extract_url_features(url: str, ssl_trusted: bool, old_domain: bool, anchor_s
     host_clean = host.split(":")[0]
 
     features = {col: 1 for col in FEATURE_COLS}
-    anomalies = []
-    suspicious = []
-    safeties = []
+    anomalies, suspicious, safeties = [], [], []
 
     is_ip = bool(re.match(r"^\d{1,3}(\.\d{1,3}){3}$", host_clean))
     if is_ip:
@@ -246,105 +347,91 @@ def extract_url_features(url: str, ssl_trusted: bool, old_domain: bool, anchor_s
     url_len = len(clean_url)
     if url_len >= 75:
         features["URL_Length"] = -1
-        anomalies.append(f"Panjang URL ekstrem ({url_len} karakter ≥ 75)")
+        anomalies.append(f"Panjang URL ekstrem ({url_len} karakter)")
     elif url_len >= 54:
         features["URL_Length"] = 0
         suspicious.append(f"Panjang URL menengah ({url_len} karakter)")
     else:
-        safeties.append(f"Panjang URL standar ({url_len} karakter < 54)")
+        safeties.append(f"Panjang URL standar ({url_len} karakter)")
 
     is_shortener = any(s in host for s in SHORTENERS)
     if is_shortener:
         features["Shortining_Service"] = -1
         features["URL_of_Anchor"] = 0
-        anomalies.append("Menggunakan domain URL shortener")
+        anomalies.append("Menggunakan layanan URL shortener")
     else:
         safeties.append("Bukan domain shortener")
 
     if "@" in clean_url:
         features["having_At_Symbol"] = -1
-        anomalies.append("Terdapat simbol '@' untuk mengelabui browser")
+        anomalies.append("Terdapat simbol '@' dalam URL")
     else:
-        safeties.append("Bebas dari simbol pengabur '@'")
+        safeties.append("Bebas dari simbol '@'")
 
     if clean_url.rfind("//") > 7:
         features["double_slash_redirecting"] = -1
-        anomalies.append("Ditemukan pola redirect double-slash '//'")
+        anomalies.append("Pola redirect double-slash '//' terdeteksi")
     else:
-        safeties.append("Format double-slash protokol standar")
+        safeties.append("Struktur slash protokol normal")
 
     if "-" in host:
         features["Prefix_Suffix"] = -1
-        anomalies.append("Domain memuat tanda minus '-' (teknik typo-squatting)")
+        anomalies.append("Domain memuat tanda hubung '-'")
     else:
-        safeties.append("Domain bersih tanpa tanda minus")
+        safeties.append("Domain tanpa tanda hubung '-'")
 
-    sub_domain_str = host.replace("www.", "")
-    dot_count = sub_domain_str.count(".")
+    dot_count = host.replace("www.", "").count(".")
     if dot_count >= 3:
         features["having_Sub_Domain"] = -1
-        anomalies.append(f"Sub-domain berlapis berlebihan ({dot_count} titik)")
+        anomalies.append(f"Sub-domain berlapis ({dot_count} titik)")
     elif dot_count == 2:
         features["having_Sub_Domain"] = 0
         suspicious.append("Dua tingkatan sub-domain terdeteksi")
     else:
-        safeties.append("Struktur subdomain normal")
+        safeties.append("Struktur sub-domain normal")
 
     if "https" in host:
         features["HTTPS_token"] = -1
-        anomalies.append("Token 'https' dipalsukan pada label domain")
-    else:
-        safeties.append("Tanpa token https palsu pada domain")
+        anomalies.append("Token 'https' disisipkan pada nama domain")
 
     if parsed.scheme == "https" and ssl_trusted:
         features["SSLfinal_State"] = 1
-        safeties.append("Koneksi HTTPS terenkripsi & sertifikat valid")
+        safeties.append("HTTPS aktif dengan sertifikat CA valid")
     elif parsed.scheme == "https":
         features["SSLfinal_State"] = 0
-        suspicious.append("HTTPS aktif namun penerbit belum terverifikasi")
+        suspicious.append("HTTPS aktif namun CA belum terverifikasi")
     else:
         features["SSLfinal_State"] = -1
-        anomalies.append("Protokol HTTP tanpa enkripsi SSL/TLS")
+        anomalies.append("Koneksi HTTP tanpa enkripsi TLS/SSL")
 
     if not old_domain:
-        features["age_of_domain"] = -1
-        features["Domain_registeration_length"] = -1
-        features["web_traffic"] = -1
-        features["Page_Rank"] = -1
-        features["Google_Index"] = -1
-        features["Links_pointing_to_page"] = -1
-        anomalies.append("Umur registrasi domain baru (< 6 bulan)")
+        for col in ("age_of_domain", "Domain_registeration_length", "web_traffic", "Page_Rank", "Google_Index", "Links_pointing_to_page"):
+            features[col] = -1
+        anomalies.append("Registrasi domain baru (< 6 bulan)")
     else:
-        features["age_of_domain"] = 1
-        features["Domain_registeration_length"] = 1
-        features["web_traffic"] = 1
-        features["Page_Rank"] = 1
-        features["Google_Index"] = 1
-        features["Links_pointing_to_page"] = 1
+        for col in ("age_of_domain", "Domain_registeration_length", "web_traffic", "Page_Rank", "Google_Index", "Links_pointing_to_page"):
+            features[col] = 1
         safeties.append("Domain memiliki rekam jejak usia matang")
 
     if anchor_suspicious:
         features["URL_of_Anchor"] = -1
-        anomalies.append("Banyak tautan anchor (<a>) kosong atau mengarah ke luar")
+        anomalies.append("Anchor tag mengarah ke luar domain")
 
     if sfh_external:
         features["SFH"] = -1
-        anomalies.append("Server Form Handler (SFH) mengirim kredensial ke server luar")
+        anomalies.append("Form handler mengarah ke server eksternal")
 
     if parsed.port and parsed.port not in (80, 443, 8080):
         features["port"] = -1
-        anomalies.append(f"Menggunakan port layanan non-standar (:{parsed.port})")
+        anomalies.append(f"Port non-standar (:{parsed.port})")
 
     meta = {
-        "scheme": parsed.scheme or "http",
-        "host": host or "(tidak terdeteksi)",
-        "path": parsed.path or "/",
-        "query": parsed.query or "(tidak ada)",
-        "length": url_len,
-        "is_ip": is_ip,
-        "is_shortened": is_shortener,
+        "scheme": (parsed.scheme or "http").upper(),
+        "host": host or "-",
+        "length": f"{url_len} chars",
+        "host_type": "Raw IPv4" if is_ip else "Domain Name",
+        "shortener": "Detected" if is_shortener else "None",
     }
-
     return features, meta, anomalies, suspicious, safeties
 
 
@@ -354,14 +441,14 @@ def load_scaler():
 
 
 def get_available_models():
-    models = {}
     catalog = {
-        "K-Nearest Neighbors (k=11)": {"file": "knn_model.pkl", "needs_scaling": True, "pic": "Irfan"},
         "Random Forest": {"file": "random_forest_model.pkl", "needs_scaling": False, "pic": "Wawa"},
+        "K-Nearest Neighbors (k=11)": {"file": "knn_model.pkl", "needs_scaling": True, "pic": "Irfan"},
+        "Naive Bayes (CategoricalNB)": {"file": "naive_bayes_model.pkl", "needs_scaling": False, "pic": "Gisca"},
         "Decision Tree (CART)": {"file": "decision_tree_model.pkl", "needs_scaling": False, "pic": "Laura"},
         "Logistic Regression": {"file": "logistic_regression_model.pkl", "needs_scaling": True, "pic": "Rapip"},
-        "Naive Bayes": {"file": "naive_bayes_model.pkl", "needs_scaling": False, "pic": "Gisca"},
     }
+    models = {}
     for display_name, meta in catalog.items():
         path = MODEL_DIR / meta["file"]
         if path.exists():
@@ -370,7 +457,6 @@ def get_available_models():
                     "model": joblib.load(path),
                     "needs_scaling": meta["needs_scaling"],
                     "pic": meta["pic"],
-                    "status": "Ready",
                 }
             except Exception:
                 pass
@@ -379,599 +465,396 @@ def get_available_models():
 
 def load_all_metrics():
     rows = []
-    metric_files = sorted(EVAL_DIR.glob("*metrics*.json"))
-    for mf in metric_files:
+    for mf in sorted(EVAL_DIR.glob("*metrics*.json")):
         try:
             with open(mf, "r", encoding="utf-8") as f:
                 data = json.load(f)
                 rows.append({
                     "Algoritma": data.get("Algoritma", mf.stem),
                     "PIC": data.get("PIC", "-"),
-                    "Accuracy": f"{data.get('Accuracy', 0) * 100:.2f}%",
-                    "Precision": f"{data.get('Precision (Phishing)', 0) * 100:.2f}%",
-                    "Recall Phishing": f"{data.get('Recall (Phishing)', 0) * 100:.2f}%",
-                    "F1-Score": f"{data.get('F1-Score (Phishing)', 0) * 100:.2f}%",
-                    "ROC-AUC": f"{data.get('ROC-AUC', 0):.4f}",
-                    "Status": "Evaluated",
-                    "raw_acc": data.get("Accuracy", 0),
-                    "raw_rec": data.get("Recall (Phishing)", 0),
-                    "raw_f1": data.get("F1-Score (Phishing)", 0),
-                    "raw_auc": data.get("ROC-AUC", 0),
+                    "Accuracy": data.get("Accuracy", 0.0),
+                    "Precision": data.get("Precision (Phishing)", 0.0),
+                    "Recall Phishing": data.get("Recall (Phishing)", 0.0),
+                    "F1-Score": data.get("F1-Score (Phishing)", 0.0),
+                    "ROC-AUC": data.get("ROC-AUC", 0.0),
+                    "Train Time (s)": data.get("Train Time (s)", 0.0),
                 })
         except Exception:
             pass
-
-    known_roster = [
-        ("K-Nearest Neighbors (k=11)", "Irfan"),
-        ("Random Forest", "Wawa"),
-        ("Decision Tree (CART)", "Laura"),
-        ("Logistic Regression", "Rapip"),
-        ("Naive Bayes", "Gisca"),
-    ]
-    existing_algos = {r["Algoritma"] for r in rows}
-    for name, pic in known_roster:
-        if not any(name.lower() in existing.lower() for existing in existing_algos):
-            rows.append({
-                "Algoritma": name,
-                "PIC": pic,
-                "Accuracy": "Pending",
-                "Precision": "Pending",
-                "Recall Phishing": "Pending",
-                "F1-Score": "Pending",
-                "ROC-AUC": "Pending",
-                "Status": "In Development",
-                "raw_acc": 0.0,
-                "raw_rec": 0.0,
-                "raw_f1": 0.0,
-                "raw_auc": 0.0,
-            })
-    return pd.DataFrame(rows)
+    df = pd.DataFrame(rows)
+    if not df.empty:
+        df = df.sort_values(["F1-Score", "ROC-AUC"], ascending=False).reset_index(drop=True)
+    return df
 
 
-header_html = """
-<div class="app-header">
-    <div style="display: flex; justify-content: space-between; align-items: flex-start; flex-wrap: wrap; gap: 12px;">
-        <div>
-            <div style="display: flex; gap: 8px; margin-bottom: 8px;">
-                <span class="tag-pill tag-cyan">TBP Data Mining</span>
-                <span class="tag-pill tag-emerald">UCI Phishing Dataset</span>
-                <span class="tag-pill tag-slate">Kelompok 4 • Informatika UNS</span>
-            </div>
-            <h1>Phishing Shield — URL Threat Analyzer</h1>
-            <p>Sistem inspeksi keamanan web real-time berbasis data mining dengan pipeline 30-fitur standar UCI.</p>
-        </div>
-        <div style="text-align: right;">
-            <span style="font-size: 0.78rem; color: #94a3b8; font-family: monospace;">Model Utama: KNN (k=11)</span><br>
-            <span style="font-size: 0.78rem; color: #34d399; font-weight: 600;">Accuracy: 92.14% • ROC-AUC: 0.9760</span>
-        </div>
+metrics_df = load_all_metrics()
+best_summary = "5 Models Ready"
+if not metrics_df.empty:
+    top = metrics_df.iloc[0]
+    best_summary = f"Best F1: <strong>{top['Algoritma']}</strong> ({top['F1-Score']*100:.2f}% • AUC {top['ROC-AUC']:.4f})"
+
+st.markdown(f"""
+<div class="masthead">
+    <div>
+        <div class="masthead-kicker">Kelompok 4 • Informatika UNS • UCI Phishing Benchmark</div>
+        <h1 class="masthead-title">PhishGuard URL Inspector</h1>
+        <p class="masthead-sub">Sistem klasifikasi keamanan situs web berbasis 30 indikator leksikal, sertifikat SSL, dan reputasi domain.</p>
+    </div>
+    <div class="masthead-stat">
+        <div>Dataset: <strong>5,849 unique URLs</strong> (80:20 split)</div>
+        <div>{best_summary}</div>
     </div>
 </div>
-"""
-st.markdown(header_html, unsafe_allow_html=True)
+""", unsafe_allow_html=True)
 
-tab_detect, tab_leaderboard, tab_about = st.tabs([
-    "Investigasi & Deteksi URL",
-    "Komparasi 5 Algoritma",
-    "Arsitektur & Dokumentasi",
+tab_detect, tab_benchmark, tab_method = st.tabs([
+    "URL Inspector",
+    "Model Benchmark",
+    "Methodology & Team",
 ])
 
 with tab_detect:
-    col_input, col_config = st.columns([7, 3])
-
-    with col_input:
-        st.markdown("**Metode Input Data:**")
+    top_l, top_r = st.columns([7, 3])
+    with top_l:
         input_mode = st.radio(
-            "Metode Input:",
-            ["Analisis URL Cepat", "Simulasi 30 Parameter UCI"],
+            "Mode Input",
+            ["URL Lexical Extractor", "30-Feature Manual Matrix"],
             horizontal=True,
             label_visibility="collapsed",
         )
-
-    with col_config:
+    with top_r:
         available_models = get_available_models()
-        model_names = list(available_models.keys()) if available_models else ["Model Belum Tersedia"]
-        selected_model_name = st.selectbox(
-            "Model Inferensi:",
-            model_names,
-            help="Pilih algoritma machine learning yang akan menjalankan klasifikasi risiko.",
-        )
+        model_names = list(available_models.keys()) if available_models else ["No Model Found"]
+        selected_model_name = st.selectbox("Model Inferensi", model_names, label_visibility="collapsed")
 
     features_dict = {col: 1 for col in FEATURE_COLS}
-    anomalies, suspicious, safeties = [], [], []
-    meta = {}
+    anomalies, suspicious, safeties, meta = [], [], [], {}
 
-    if input_mode == "Analisis URL Cepat":
-        if "url_input" not in st.session_state:
-            st.session_state["url_input"] = "http://login-verifikasi-bca-sekuriti.xyz/auth?user=@test&update=1"
-        if "ssl_trusted" not in st.session_state:
-            st.session_state["ssl_trusted"] = False
-        if "old_domain" not in st.session_state:
-            st.session_state["old_domain"] = False
-        if "anchor_suspicious" not in st.session_state:
-            st.session_state["anchor_suspicious"] = True
-        if "sfh_external" not in st.session_state:
-            st.session_state["sfh_external"] = True
+    if input_mode == "URL Lexical Extractor":
+        defaults = {
+            "url_input": "http://login-verifikasi-bca-sekuriti.xyz/auth?user=@test&update=1",
+            "ssl_trusted": False,
+            "old_domain": False,
+            "anchor_suspicious": True,
+            "sfh_external": True,
+        }
+        for k, v in defaults.items():
+            if k not in st.session_state:
+                st.session_state[k] = v
 
-        def load_preset(url, ssl, old, anchor, sfh):
+        def set_preset(url, ssl, old, anchor, sfh):
             st.session_state["url_input"] = url
             st.session_state["ssl_trusted"] = ssl
             st.session_state["old_domain"] = old
             st.session_state["anchor_suspicious"] = anchor
             st.session_state["sfh_external"] = sfh
 
-        st.caption("Pilihan Preset Uji Cepat:")
-        preset_cols = st.columns(4)
-        with preset_cols[0]:
-            if st.button("Bank Spoofing", use_container_width=True):
-                load_preset("http://login-verifikasi-bca-sekuriti.xyz/auth?user=@test&update=1", False, False, True, True)
-                st.rerun()
-        with preset_cols[1]:
-            if st.button("Google Safe", use_container_width=True):
-                load_preset("https://www.google.com/search?q=cybersecurity+un", True, True, False, False)
-                st.rerun()
-        with preset_cols[2]:
-            if st.button("Bitly Shortener", use_container_width=True):
-                load_preset("https://bit.ly/update-keamanan-akun-2026", False, False, True, False)
-                st.rerun()
-        with preset_cols[3]:
-            if st.button("Raw IP Host", use_container_width=True):
-                load_preset("http://192.168.1.105/paypal/update-billing-verification.php?id=92834", False, False, True, True)
-                st.rerun()
+        col_main, col_telemetry = st.columns([6, 4], gap="large")
 
-        url_input = st.text_input(
-            "Alamat URL Sasaran:",
-            value=st.session_state["url_input"],
-            placeholder="Contoh: https://secure-login.bank.com/auth",
-            help="Tempelkan URL lengkap termasuk protokol http:// atau https://",
-        )
+        with col_main:
+            st.caption("PRESET UJI CEPAT")
+            p_cols = st.columns(4)
+            presets = [
+                ("Bank Spoofing", "http://login-verifikasi-bca-sekuriti.xyz/auth?user=@test&update=1", False, False, True, True),
+                ("Google Safe", "https://www.google.com/search?q=cybersecurity", True, True, False, False),
+                ("Shortener", "https://bit.ly/update-keamanan-akun-2026", False, False, True, False),
+                ("Raw IP Host", "http://192.168.1.105/paypal/update-billing.php?id=928", False, False, True, True),
+            ]
+            for col, (label, u, s, o, a, sf) in zip(p_cols, presets):
+                with col:
+                    if st.button(label, use_container_width=True):
+                        set_preset(u, s, o, a, sf)
+                        st.rerun()
 
-        opt_c1, opt_c2 = st.columns(2)
-        with opt_c1:
-            ssl_trusted = st.checkbox(
-                "Sertifikat SSL diverifikasi otoritas terpercaya (CA)",
-                value=st.session_state["ssl_trusted"],
-            )
-        with opt_c2:
-            old_domain = st.checkbox(
-                "Domain terdaftar lebih dari 6 bulan yang lalu",
-                value=st.session_state["old_domain"],
+            url_input = st.text_input(
+                "Target URL",
+                value=st.session_state["url_input"],
+                placeholder="https://example.com/login",
             )
 
-        with st.expander("Konfigurasi Parameter Lanjutan Halaman Web", expanded=False):
-            col_adv1, col_adv2 = st.columns(2)
-            with col_adv1:
-                anchor_suspicious = st.checkbox(
-                    "Tautan anchor (<a>) mencurigakan atau mengarah ke luar domain",
-                    value=st.session_state["anchor_suspicious"],
-                )
-            with col_adv2:
-                sfh_external = st.checkbox(
-                    "Formulir login mengirim data ke script/server pihak ketiga (SFH External)",
-                    value=st.session_state["sfh_external"],
-                )
+            c_opt1, c_opt2 = st.columns(2)
+            with c_opt1:
+                ssl_trusted = st.checkbox("SSL terverifikasi CA terpercaya", value=st.session_state["ssl_trusted"])
+            with c_opt2:
+                old_domain = st.checkbox("Umur domain > 6 bulan", value=st.session_state["old_domain"])
 
-        features_dict, meta, anomalies, suspicious, safeties = extract_url_features(
-            url_input, ssl_trusted, old_domain, anchor_suspicious, sfh_external
-        )
+            with st.expander("Parameter Lanjutan Halaman (HTML / Form)", expanded=False):
+                anchor_suspicious = st.checkbox("Anchor (<a>) mengarah ke domain eksternal", value=st.session_state["anchor_suspicious"])
+                sfh_external = st.checkbox("Server Form Handler (SFH) ke server luar", value=st.session_state["sfh_external"])
 
-        with st.expander("Inspeksi Anatomi URL & Komponen Leksikal", expanded=True):
-            inspect_html = f"""
-            <div class="url-inspect-grid">
-                <div class="url-inspect-cell">
-                    <div class="caption">Protokol</div>
-                    <div class="val"><code>{meta.get('scheme', '-').upper()}</code></div>
-                </div>
-                <div class="url-inspect-cell">
-                    <div class="caption">Hostname / Host</div>
-                    <div class="val"><code>{meta.get('host', '-')}</code></div>
-                </div>
-                <div class="url-inspect-cell">
-                    <div class="caption">Panjang URL</div>
-                    <div class="val">{meta.get('length', 0)} Karakter</div>
-                </div>
-                <div class="url-inspect-cell">
-                    <div class="caption">Format Host</div>
-                    <div class="val">{'Raw IP' if meta.get('is_ip') else 'Domain Name'}</div>
-                </div>
-                <div class="url-inspect-cell">
-                    <div class="caption">Shortener URL</div>
-                    <div class="val">{'Terdeteksi' if meta.get('is_shortened') else 'Tidak'}</div>
-                </div>
-            </div>
-            """
-            st.markdown(inspect_html, unsafe_allow_html=True)
-
-            sig_c1, sig_c2 = st.columns(2)
-            with sig_c1:
-                st.caption("Pola Anomali & Risiko Terdeteksi:")
-                if anomalies:
-                    for a in anomalies:
-                        st.markdown(f'<div class="signal-item signal-danger">⚠️ {a}</div>', unsafe_allow_html=True)
-                if suspicious:
-                    for s in suspicious:
-                        st.markdown(f'<div class="signal-item signal-warning">🔍 {s}</div>', unsafe_allow_html=True)
-                if not anomalies and not suspicious:
-                    st.markdown('<div class="signal-item signal-safe">✓ Tidak ditemukan pola ancaman leksikal dasar</div>', unsafe_allow_html=True)
-            with sig_c2:
-                st.caption("Indikator Valid / Lolos Evaluasi:")
-                for sf in safeties:
-                    st.markdown(f'<div class="signal-item signal-safe">🛡️ {sf}</div>', unsafe_allow_html=True)
-
-    else:
-        st.markdown("<p style='font-size:0.875rem; color:#64748b;'>Sesuaikan parameter fitur UCI untuk melakukan simulasi teknis komprehensif:</p>", unsafe_allow_html=True)
-        col_f1, col_f2, col_f3 = st.columns(3)
-
-        with col_f1:
-            st.markdown("**Struktur Alamat & Protokol**")
-            features_dict["having_IP_Address"] = st.selectbox(
-                "Host Berupa Alamat IP",
-                [1, -1],
-                format_func=lambda x: "Nama Domain Normal (+1)" if x == 1 else "Alamat IP Mentah (-1)",
-            )
-            features_dict["URL_Length"] = st.selectbox(
-                "Panjang Karakter URL",
-                [1, 0, -1],
-                format_func=lambda x: "Pendek <54 kar (+1)" if x == 1 else ("Sedang 54-75 kar (0)" if x == 0 else "Panjang ≥75 kar (-1)"),
-            )
-            features_dict["Shortining_Service"] = st.selectbox(
-                "Layanan Pemendek URL",
-                [1, -1],
-                format_func=lambda x: "Domain Langsung (+1)" if x == 1 else "Pemendek URL (-1)",
-            )
-            features_dict["Prefix_Suffix"] = st.selectbox(
-                "Tanda Minus (-) pada Domain",
-                [1, -1],
-                format_func=lambda x: "Tanpa Minus (+1)" if x == 1 else "Memuat Tanda Minus (-1)",
-            )
-            features_dict["having_Sub_Domain"] = st.selectbox(
-                "Hierarki Sub-domain",
-                [1, 0, -1],
-                format_func=lambda x: "Normal / 1 Titik (+1)" if x == 1 else ("2 Tingkat (0)" if x == 0 else "Banyak Tingkat ≥3 (-1)"),
-            )
-            features_dict["SSLfinal_State"] = st.selectbox(
-                "Sertifikat Enkripsi SSL",
-                [1, 0, -1],
-                format_func=lambda x: "SSL Valid & Terpercaya (+1)" if x == 1 else ("SSL Self-signed / Ragu (0)" if x == 0 else "Tanpa SSL (-1)"),
+            features_dict, meta, anomalies, suspicious, safeties = extract_url_features(
+                url_input, ssl_trusted, old_domain, anchor_suspicious, sfh_external
             )
 
-        with col_f2:
-            st.markdown("**Konten & Struktur Halaman**")
-            features_dict["URL_of_Anchor"] = st.selectbox(
-                "Tautan Anchor (<a> tag)",
-                [1, 0, -1],
-                format_func=lambda x: "Mayoritas Normal (+1)" if x == 1 else ("Sebagian Mencurigakan (0)" if x == 0 else "Mayoritas Anomali/Kosong (-1)"),
-            )
-            features_dict["Request_URL"] = st.selectbox(
-                "Aset External Request URL",
-                [1, -1],
-                format_func=lambda x: "Aset Internal Domain (+1)" if x == 1 else "Banyak Aset Domain Luar (-1)",
-            )
-            features_dict["Links_in_tags"] = st.selectbox(
-                "Tautan dalam Script / Meta Tag",
-                [1, 0, -1],
-                format_func=lambda x: "Internal Normal (+1)" if x == 1 else ("Sebagian Eksternal (0)" if x == 0 else "Mayoritas Eksternal (-1)"),
-            )
-            features_dict["SFH"] = st.selectbox(
-                "Server Form Handler (SFH)",
-                [1, 0, -1],
-                format_func=lambda x: "Action Handler Internal (+1)" if x == 1 else ("Action Handler Kosong (0)" if x == 0 else "Action Handler Domain Lain (-1)"),
-            )
-            features_dict["Submitting_to_email"] = st.selectbox(
-                "Submit Data via mailto:",
-                [1, -1],
-                format_func=lambda x: "Server Backend (+1)" if x == 1 else "Kirim Form ke Email (-1)",
-            )
-            features_dict["Iframe"] = st.selectbox(
-                "Iframe Tersembunyi",
-                [1, -1],
-                format_func=lambda x: "Tanpa Iframe Anonim (+1)" if x == 1 else "Memuat Iframe Tersembunyi (-1)",
-            )
+            run_btn = st.button("Analyze URL Risk", type="primary", use_container_width=True)
 
-        with col_f3:
-            st.markdown("**Reputasi Domain & Traffic**")
-            features_dict["age_of_domain"] = st.selectbox(
-                "Umur Domain Berjalan",
-                [1, -1],
-                format_func=lambda x: "Lama ≥6 Bulan (+1)" if x == 1 else "Baru <6 Bulan (-1)",
-            )
-            features_dict["DNSRecord"] = st.selectbox(
-                "Catatan Entri DNS",
-                [1, -1],
-                format_func=lambda x: "DNS Terdaftar & Valid (+1)" if x == 1 else "DNS Record Tidak Ditemukan (-1)",
-            )
-            features_dict["web_traffic"] = st.selectbox(
-                "Peringkat Web Traffic",
-                [1, 0, -1],
-                format_func=lambda x: "Traffic Tinggi / Top 100k (+1)" if x == 1 else ("Traffic Menengah (0)" if x == 0 else "Tanpa Traffic Tercatat (-1)"),
-            )
-            features_dict["Google_Index"] = st.selectbox(
-                "Status Pengindeksan Google",
-                [1, -1],
-                format_func=lambda x: "Terindeks Google (+1)" if x == 1 else "Belum / Tidak Terindeks (-1)",
-            )
-            features_dict["Page_Rank"] = st.selectbox(
-                "Google PageRank Score",
-                [1, -1],
-                format_func=lambda x: "PageRank Valid (+1)" if x == 1 else "PageRank Sangat Rendah (-1)",
-            )
-            features_dict["Statistical_report"] = st.selectbox(
-                "Blacklist PhishTank / StopBadware",
-                [1, -1],
-                format_func=lambda x: "Bersih dari Laporan (+1)" if x == 1 else "Masuk Daftar Hitam Phishing (-1)",
-            )
-
-    input_df = pd.DataFrame([features_dict])[FEATURE_COLS]
-
-    with st.expander("Vektor Lengkap 30 Fitur UCI (Format Numerik Machine Learning)"):
-        st.dataframe(input_df, use_container_width=True, height=68)
-
-    btn_analyze = st.button("Jalankan Inferensi Keamanan", type="primary", use_container_width=True)
-
-    if btn_analyze:
-        if selected_model_name in available_models:
-            model_info = available_models[selected_model_name]
-            active_model = model_info["model"]
-
-            data_for_pred = input_df
-            scaler_used = False
-            if model_info["needs_scaling"]:
-                scaler = load_scaler()
-                if scaler is not None:
-                    data_for_pred = scaler.transform(input_df)
-                    scaler_used = True
-
-            prediction = int(active_model.predict(data_for_pred)[0])
-            probabilities = (
-                active_model.predict_proba(data_for_pred)[0]
-                if hasattr(active_model, "predict_proba")
-                else None
-            )
-
-            is_phishing = prediction == 1
-            phish_prob = probabilities[1] if probabilities is not None else (0.95 if is_phishing else 0.05)
-            safe_prob = probabilities[0] if probabilities is not None else (1.0 - phish_prob)
-
-            if is_phishing:
-                banner_class = "verdict-banner-phishing"
-                badge_class = "status-badge-phishing"
-                status_text = "Situs Terindikasi Phishing"
-                risk_level = "Tingkat Risiko Kritis"
-                desc_text = (
-                    "URL ini memiliki pola karakteristik leksikal dan struktural yang sangat identik "
-                    "dengan situs penipuan, pemalsuan identitas (spoofing), atau pencurian kredensial pengguna."
-                )
-            else:
-                banner_class = "verdict-banner-safe"
-                badge_class = "status-badge-safe"
-                status_text = "Situs Terverifikasi Aman (Legitimate)"
-                risk_level = "Tingkat Risiko Minimal"
-                desc_text = (
-                    "Struktur URL, parameter enkripsi sertifikat, dan atribut domain konsisten "
-                    "dengan pola situs resmi yang sah dan tidak memperlihatkan anomali manipulasi."
-                )
-
-            verdict_html = f"""
-            <div class="{banner_class}">
-                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; flex-wrap: wrap; gap: 8px;">
-                    <span class="status-badge {badge_class}">{status_text}</span>
-                    <span style="font-weight: 700; font-size: 0.9rem; color: {'#991b1b' if is_phishing else '#065f46'};">{risk_level}</span>
-                </div>
-                <p style="font-size: 0.95rem; line-height: 1.55; margin: 0 0 16px 0; color: #1e293b;">
-                    {desc_text}
-                </p>
-                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 10px;">
-                    <div class="metric-container">
-                        <span class="metric-label">Probabilitas Phishing</span>
-                        <span class="metric-value" style="color: {'#dc2626' if is_phishing else '#64748b'};">{phish_prob * 100:.1f}%</span>
-                    </div>
-                    <div class="metric-container">
-                        <span class="metric-label">Probabilitas Aman</span>
-                        <span class="metric-value" style="color: {'#16a34a' if not is_phishing else '#64748b'};">{safe_prob * 100:.1f}%</span>
-                    </div>
-                    <div class="metric-container">
-                        <span class="metric-label">Model Inferensi</span>
-                        <span class="metric-value" style="font-size: 1.05rem;">{selected_model_name.split('(')[0].strip()}</span>
-                    </div>
-                    <div class="metric-container">
-                        <span class="metric-label">Penskalaan Normalisasi</span>
-                        <span class="metric-value" style="font-size: 1.05rem;">{'StandardScaler (Z-Score)' if scaler_used else 'Fitur Asli (Tree-based)'}</span>
-                    </div>
-                </div>
-            </div>
-            """
-            st.markdown(verdict_html, unsafe_allow_html=True)
-
-            chart_col, reco_col = st.columns([5, 5])
-
-            with chart_col:
-                st.markdown("**Distribusi Probabilitas Risiko:**")
-                prob_data = pd.DataFrame([
-                    {"Kategori": "Aman (Legitimate)", "Probabilitas": safe_prob},
-                    {"Kategori": "Phishing (Berbahaya)", "Probabilitas": phish_prob},
-                ])
-
-                chart = (
-                    alt.Chart(prob_data)
-                    .mark_bar(cornerRadiusTopRight=6, cornerRadiusBottomRight=6, height=26)
-                    .encode(
-                        x=alt.X("Probabilitas:Q", scale=alt.Scale(domain=[0, 1]), axis=alt.Axis(format="%")),
-                        y=alt.Y("Kategori:N", title=None),
-                        color=alt.Color("Kategori:N", scale=alt.Scale(domain=["Aman (Legitimate)", "Phishing (Berbahaya)"], range=["#10b981", "#ef4444"]), legend=None),
-                        tooltip=[alt.Tooltip("Kategori:N"), alt.Tooltip("Probabilitas:Q", format=".2%")],
-                    )
-                    .properties(height=130)
-                )
-                st.altair_chart(chart, use_container_width=True)
-
-            with reco_col:
-                st.markdown("**Panduan Tindakan Pengguna:**")
-                if is_phishing:
-                    reco_items = [
-                        "DILARANG memasukkan username, sandi akun perbankan, atau PIN pada halaman ini.",
-                        "Segera tutup jendela tab browser dan jangan unduh berkas lampiran yang diminta.",
-                        "Periksa apakah URL memuat kesalahan ketik tipuan (typo-squatting) pada domain utama.",
-                    ]
-                    for item in reco_items:
-                        st.markdown(f"<div style='font-size:0.875rem; margin-bottom:6px; color:#991b1b;'>⛔ {item}</div>", unsafe_allow_html=True)
-                else:
-                    reco_items = [
-                        "Domain memiliki parameter identitas yang konsisten dengan standar situs sah.",
-                        "Pastikan ikon gembok pada browser aktif saat mentransaksikan data rahasia.",
-                        "Tetap lakukan verifikasi dua langkah (2FA) pada layanan akun personal Anda.",
-                    ]
-                    for item in reco_items:
-                        st.markdown(f"<div style='font-size:0.875rem; margin-bottom:6px; color:#166534;'>✅ {item}</div>", unsafe_allow_html=True)
-
-        else:
-            st.warning("Model belum diekspor ke folder `models/`. Silakan jalankan notebook modeling terlebih dahulu.")
-
-
-with tab_leaderboard:
-    st.markdown("### Leaderboard Komparasi 5 Algoritma")
-    st.markdown(
-        "Tolok ukur performa klasifikasi deteksi situs phishing diuji menggunakan data uji independen "
-        "(1.170 baris unik terstratifikasi) yang bebas dari kebocoran data (*data leakage*)."
-    )
-
-    metrics_df = load_all_metrics()
-
-    top_c1, top_c2, top_c3, top_c4 = st.columns(4)
-    with top_c1:
-        st.markdown("""
-        <div class="metric-container">
-            <span class="metric-label">Model Akurasi Tertinggi</span>
-            <span class="metric-value">92.14%</span>
-            <span style="font-size:0.75rem; color:#64748b; margin-top:2px;">K-Nearest Neighbors (k=11)</span>
-        </div>
-        """, unsafe_allow_html=True)
-    with top_c2:
-        st.markdown("""
-        <div class="metric-container">
-            <span class="metric-label">ROC-AUC Tertinggi</span>
-            <span class="metric-value">0.9760</span>
-            <span style="font-size:0.75rem; color:#64748b; margin-top:2px;">Pembeda Legitimate vs Phishing</span>
-        </div>
-        """, unsafe_allow_html=True)
-    with top_c3:
-        st.markdown("""
-        <div class="metric-container">
-            <span class="metric-label">Recall Phishing Prioritas</span>
-            <span class="metric-value">93.05%</span>
-            <span style="font-size:0.75rem; color:#64748b; margin-top:2px;">Minimasi False Negative Berbahaya</span>
-        </div>
-        """, unsafe_allow_html=True)
-    with top_c4:
-        st.markdown("""
-        <div class="metric-container">
-            <span class="metric-label">Total Sampel Uji</span>
-            <span class="metric-value">1,170</span>
-            <span style="font-size:0.75rem; color:#64748b; margin-top:2px;">Evaluasi 20% Stratified Holdout</span>
-        </div>
-        """, unsafe_allow_html=True)
-
-    st.markdown("<div style='height: 12px'></div>", unsafe_allow_html=True)
-
-    display_df = metrics_df[["Algoritma", "PIC", "Accuracy", "Precision", "Recall Phishing", "F1-Score", "ROC-AUC", "Status"]]
-    st.dataframe(display_df, use_container_width=True, hide_index=True)
-
-    eval_data = metrics_df[metrics_df["Status"] == "Evaluated"]
-    if not eval_data.empty:
-        st.markdown("#### Visualisasi Metrik Model yang Telah Terevaluasi")
-        chart_rows = []
-        for _, row in eval_data.iterrows():
-            chart_rows.extend([
-                {"Algoritma": row["Algoritma"], "Metrik": "Accuracy", "Skor": row["raw_acc"]},
-                {"Algoritma": row["Algoritma"], "Metrik": "Recall (Phishing)", "Skor": row["raw_rec"]},
-                {"Algoritma": row["Algoritma"], "Metrik": "F1-Score", "Skor": row["raw_f1"]},
-                {"Algoritma": row["Algoritma"], "Metrik": "ROC-AUC", "Skor": row["raw_auc"]},
-            ])
-        chart_eval_df = pd.DataFrame(chart_rows)
-
-        comp_chart = (
-            alt.Chart(chart_eval_df)
-            .mark_bar(cornerRadiusTopLeft=4, cornerRadiusTopRight=4)
-            .encode(
-                x=alt.X("Metrik:N", title=None, axis=alt.Axis(labelAngle=0)),
-                y=alt.Y("Skor:Q", title="Skor (0.0 - 1.0)", scale=alt.Scale(domain=[0.8, 1.0])),
-                color=alt.Color("Algoritma:N", scale=alt.Scale(scheme="category10")),
-                xOffset="Algoritma:N",
-                tooltip=["Algoritma:N", "Metrik:N", alt.Tooltip("Skor:Q", format=".4f")],
-            )
-            .properties(height=260)
-        )
-        st.altair_chart(comp_chart, use_container_width=True)
-
-
-with tab_about:
-    st.markdown("### Arsitektur Rekayasa & Metodologi Proyek")
-
-    st.markdown("""
-    #### 1. Pipeline Pemrosesan Data Bebas Kebocoran (Data Leakage)
-    Pada penelitian situs web phishing, banyak sampel URL memuat nilai fitur yang identik. Jika data mentah
-    langsung dibagi menjadi *train* dan *test*, ribuan baris duplikat akan tersebar ke kedua himpunan
-    sehingga menyebabkan model tampak berakurasi tinggi secara semu (*overfitting* artifisial).
-    """)
-
-    pipe_c1, pipe_c2, pipe_c3, pipe_c4 = st.columns(4)
-    with pipe_c1:
-        st.markdown("""
-        <div class="card">
-            <div class="card-title">1. Dataset Mentah</div>
-            <div style="font-size:1.4rem; font-weight:700; color:#0f172a;">11,055 Baris</div>
-            <p style="font-size:0.8rem; color:#64748b; margin-top:4px;">Sumber UCI ML Repository dengan 30 indikator keamanan dan 0 missing value.</p>
-        </div>
-        """, unsafe_allow_html=True)
-    with pipe_c2:
-        st.markdown("""
-        <div class="card">
-            <div class="card-title">2. Deduplikasi Ketat</div>
-            <div style="font-size:1.4rem; font-weight:700; color:#ef4444;">-5,206 Duplikat</div>
-            <p style="font-size:0.8rem; color:#64748b; margin-top:4px;">Pembersihan baris identik untuk menjamin integritas evaluasi generalisasi.</p>
-        </div>
-        """, unsafe_allow_html=True)
-    with pipe_c3:
-        st.markdown("""
-        <div class="card">
-            <div class="card-title">3. Dataset Unik</div>
-            <div style="font-size:1.4rem; font-weight:700; color:#10b981;">5,849 Baris</div>
-            <p style="font-size:0.8rem; color:#64748b; margin-top:4px;">2.830 Legitimate (48.4%) dan 3.019 Phishing (51.6%) seimbang.</p>
-        </div>
-        """, unsafe_allow_html=True)
-    with pipe_c4:
-        st.markdown("""
-        <div class="card">
-            <div class="card-title">4. Stratified Split 80:20</div>
-            <div style="font-size:1.4rem; font-weight:700; color:#2563eb;">4,679 : 1,170</div>
-            <p style="font-size:0.8rem; color:#64748b; margin-top:4px;">Pembagian train-test terstratifikasi dengan penskalaan StandardScaler independen.</p>
-        </div>
-        """, unsafe_allow_html=True)
-
-    st.markdown("#### 2. Pembagian Peran Tim (Kelompok 4)")
-    roster_cols = st.columns(5)
-    members = [
-        {"name": "Laura", "role": "Project Lead & Data Prep", "algo": "Decision Tree (CART)", "desc": "Pembersihan dataset, deduplikasi, dan perumusan target."},
-        {"name": "Wawa", "role": "Feature Engineer", "algo": "Random Forest", "desc": "Eksplorasi korelasi fitur dan pemodelan ensemble Random Forest."},
-        {"name": "Gisca", "role": "Evaluator & Benchmark", "algo": "Naive Bayes", "desc": "Evaluasi komparatif 5 model, ROC-AUC, dan koordinasi metrik."},
-        {"name": "Irfan", "role": "Deployment Engineer", "algo": "K-Nearest Neighbors", "desc": "Optimasi hiperparameter KNN dan arsitektur dashboard Streamlit."},
-        {"name": "Rapip", "role": "Business Analyst & Report", "algo": "Logistic Regression", "desc": "Pemodelan regresi logistik, analisis koefisien, dan laporan akhir."},
-    ]
-    for col, m in zip(roster_cols, members):
-        with col:
+        with col_telemetry:
             st.markdown(f"""
-            <div class="card" style="height: 100%;">
-                <div style="font-weight:700; font-size:1.05rem; color:#0f172a;">{m['name']}</div>
-                <div style="font-size:0.75rem; color:#2563eb; font-weight:600; margin-bottom:8px;">{m['role']}</div>
-                <div class="tag-pill tag-slate" style="margin-bottom:8px;">{m['algo']}</div>
-                <p style="font-size:0.78rem; color:#64748b; line-height:1.4; margin:0;">{m['desc']}</p>
+            <div class="panel">
+                <div class="panel-label">Lexical Telemetry</div>
+                <table class="telemetry-table">
+                    <tr><td class="telemetry-key">Protocol</td><td class="telemetry-val">{meta.get('scheme', '-')}</td></tr>
+                    <tr><td class="telemetry-key">Host</td><td class="telemetry-val">{meta.get('host', '-')}</td></tr>
+                    <tr><td class="telemetry-key">Length</td><td class="telemetry-val">{meta.get('length', '-')}</td></tr>
+                    <tr><td class="telemetry-key">Host Format</td><td class="telemetry-val">{meta.get('host_type', '-')}</td></tr>
+                    <tr><td class="telemetry-key">Shortener</td><td class="telemetry-val">{meta.get('shortener', '-')}</td></tr>
+                </table>
             </div>
             """, unsafe_allow_html=True)
 
-    st.markdown("<div style='height: 12px'></div>", unsafe_allow_html=True)
+            with st.expander("Signal Breakdown", expanded=True):
+                for a in anomalies:
+                    st.markdown(f'<div class="signal-row signal-danger">RISK — {a}</div>', unsafe_allow_html=True)
+                for s in suspicious:
+                    st.markdown(f'<div class="signal-row signal-warn">WARN — {s}</div>', unsafe_allow_html=True)
+                for sf in safeties[:4]:
+                    st.markdown(f'<div class="signal-row signal-ok">PASS — {sf}</div>', unsafe_allow_html=True)
+    else:
+        st.caption("Sesuaikan indikator UCI secara manual (-1: Phishing, 0: Mencurigakan, 1: Aman)")
+        c1, c2, c3 = st.columns(3)
+        with c1:
+            features_dict["having_IP_Address"] = st.selectbox("Host Berupa IP", [1, -1], format_func=lambda x: "Domain (+1)" if x == 1 else "IP Address (-1)")
+            features_dict["URL_Length"] = st.selectbox("Panjang URL", [1, 0, -1], format_func=lambda x: "<54 (+1)" if x == 1 else ("54-75 (0)" if x == 0 else ">=75 (-1)"))
+            features_dict["Shortining_Service"] = st.selectbox("URL Shortener", [1, -1], format_func=lambda x: "Tidak (+1)" if x == 1 else "Ya (-1)")
+            features_dict["Prefix_Suffix"] = st.selectbox("Tanda '-' Domain", [1, -1], format_func=lambda x: "Tidak (+1)" if x == 1 else "Ada (-1)")
+            features_dict["having_Sub_Domain"] = st.selectbox("Sub-domain", [1, 0, -1], format_func=lambda x: "Normal (+1)" if x == 1 else ("2 Level (0)" if x == 0 else ">=3 Level (-1)"))
+            features_dict["SSLfinal_State"] = st.selectbox("Status SSL", [1, 0, -1], format_func=lambda x: "Valid CA (+1)" if x == 1 else ("Ragu (0)" if x == 0 else "Tanpa SSL (-1)"))
+        with c2:
+            features_dict["URL_of_Anchor"] = st.selectbox("Anchor Tag", [1, 0, -1])
+            features_dict["Request_URL"] = st.selectbox("External Request URL", [1, -1])
+            features_dict["Links_in_tags"] = st.selectbox("Links in Script/Meta", [1, 0, -1])
+            features_dict["SFH"] = st.selectbox("Server Form Handler", [1, 0, -1])
+            features_dict["Submitting_to_email"] = st.selectbox("Submit via mailto:", [1, -1])
+            features_dict["Iframe"] = st.selectbox("Hidden Iframe", [1, -1])
+        with c3:
+            features_dict["age_of_domain"] = st.selectbox("Umur Domain", [1, -1], format_func=lambda x: ">=6 Bulan (+1)" if x == 1 else "<6 Bulan (-1)")
+            features_dict["DNSRecord"] = st.selectbox("DNS Record", [1, -1])
+            features_dict["web_traffic"] = st.selectbox("Web Traffic", [1, 0, -1])
+            features_dict["Google_Index"] = st.selectbox("Google Index", [1, -1])
+            features_dict["Page_Rank"] = st.selectbox("PageRank", [1, -1])
+            features_dict["Statistical_report"] = st.selectbox("Blacklist PhishTank", [1, -1])
+
+        run_btn = st.button("Analyze Feature Matrix", type="primary", use_container_width=True)
+
+    input_df = pd.DataFrame([features_dict])[FEATURE_COLS]
+    with st.expander("Inspect 30-Feature Vector"):
+        st.dataframe(input_df, use_container_width=True, height=70)
+
+    if run_btn and selected_model_name in available_models:
+        info = available_models[selected_model_name]
+        data_for_pred = input_df
+        if info["needs_scaling"]:
+            scaler = load_scaler()
+            if scaler is not None:
+                data_for_pred = scaler.transform(input_df)
+
+        pred = int(info["model"].predict(data_for_pred)[0])
+        proba = info["model"].predict_proba(data_for_pred)[0] if hasattr(info["model"], "predict_proba") else None
+        is_phish = pred == 1
+        phish_p = float(proba[1]) if proba is not None else (0.95 if is_phish else 0.05)
+        safe_p = float(proba[0]) if proba is not None else (1.0 - phish_p)
+
+        v_class = "verdict-phishing" if is_phish else "verdict-safe"
+        t_class = "tag-phishing" if is_phish else "tag-safe"
+        verdict_title = "Phishing Threat Detected" if is_phish else "Legitimate Domain Profile"
+        verdict_desc = (
+            "Model mendeteksi kombinasi indikator yang konsisten dengan situs spoofing atau pencurian kredensial."
+            if is_phish
+            else "Parameter URL, enkripsi, dan reputasi domain sesuai dengan profil situs web yang sah."
+        )
+
+        st.markdown(f"""
+        <div class="verdict-box {v_class}">
+            <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px; margin-bottom:10px;">
+                <span class="verdict-tag {t_class}">{verdict_title}</span>
+                <span class="mono" style="font-size:0.78rem; color:#66635C;">Model: {selected_model_name} • PIC: {info['pic']}</span>
+            </div>
+            <p style="font-size:0.92rem; color:#161615; margin:0 0 18px 0;">{verdict_desc}</p>
+            <div style="display:grid; grid-template-columns:repeat(3, minmax(0, 1fr)); gap:16px; border-top:1px solid #EFECE6; padding-top:14px;">
+                <div>
+                    <div class="kpi-label">Phishing Probability</div>
+                    <div class="kpi-num" style="color:{'#9B2226' if is_phish else '#66635C'};">{phish_p*100:.1f}%</div>
+                </div>
+                <div>
+                    <div class="kpi-label">Legitimate Probability</div>
+                    <div class="kpi-num" style="color:{'#1B4332' if not is_phish else '#66635C'};">{safe_p*100:.1f}%</div>
+                </div>
+                <div>
+                    <div class="kpi-label">Preprocessing</div>
+                    <div class="kpi-num" style="font-size:1.05rem; padding-top:6px;">{'StandardScaler' if info['needs_scaling'] else 'Native Discrete'}</div>
+                </div>
+            </div>
+        </div>
+        """, unsafe_allow_html=True)
+
+        c_chart, c_action = st.columns([5, 5], gap="large")
+        with c_chart:
+            st.caption("PROBABILITY DISTRIBUTION")
+            prob_df = pd.DataFrame([
+                {"Class": "Legitimate", "Probability": safe_p},
+                {"Class": "Phishing", "Probability": phish_p},
+            ])
+            bar = (
+                alt.Chart(prob_df)
+                .mark_bar(height=22)
+                .encode(
+                    x=alt.X("Probability:Q", scale=alt.Scale(domain=[0, 1]), axis=alt.Axis(format="%")),
+                    y=alt.Y("Class:N", title=None),
+                    color=alt.Color(
+                        "Class:N",
+                        scale=alt.Scale(domain=["Legitimate", "Phishing"], range=["#1B4332", "#C84B31"]),
+                        legend=None,
+                    ),
+                    tooltip=[alt.Tooltip("Class:N"), alt.Tooltip("Probability:Q", format=".2%")],
+                )
+                .properties(height=110)
+            )
+            st.altair_chart(bar, use_container_width=True)
+
+        with c_action:
+            st.caption("RECOMMENDED ACTION")
+            if is_phish:
+                st.markdown("""
+                - Jangan memasukkan kredensial login, OTP, atau informasi finansial.
+                - Tutup halaman dan verifikasi alamat domain resmi melalui mesin pencari.
+                - Periksa tanda typo-squatting atau pemendek tautan yang menyembunyikan tujuan asli.
+                """)
+            else:
+                st.markdown("""
+                - Parameter leksikal dan sertifikat berada dalam batas aman.
+                - Tetap pastikan ikon gembok TLS aktif sebelum mengirim data sensitif.
+                - Gunakan autentikasi dua faktor (2FA) pada akun penting.
+                """)
+
+
+with tab_benchmark:
+    if not metrics_df.empty:
+        top_acc = metrics_df.sort_values("Accuracy", ascending=False).iloc[0]
+        top_rec = metrics_df.sort_values("Recall Phishing", ascending=False).iloc[0]
+        top_auc = metrics_df.sort_values("ROC-AUC", ascending=False).iloc[0]
+
+        st.markdown(f"""
+        <div class="kpi-grid">
+            <div class="kpi-cell">
+                <div class="kpi-label">Peak Accuracy</div>
+                <div class="kpi-num">{top_acc['Accuracy']*100:.2f}%</div>
+                <div class="kpi-note">{top_acc['Algoritma']} ({top_acc['PIC']})</div>
+            </div>
+            <div class="kpi-cell">
+                <div class="kpi-label">Peak Phishing Recall</div>
+                <div class="kpi-num">{top_rec['Recall Phishing']*100:.2f}%</div>
+                <div class="kpi-note">{top_rec['Algoritma']} ({top_rec['PIC']})</div>
+            </div>
+            <div class="kpi-cell">
+                <div class="kpi-label">Peak ROC-AUC</div>
+                <div class="kpi-num">{top_auc['ROC-AUC']:.4f}</div>
+                <div class="kpi-note">{top_auc['Algoritma']} ({top_auc['PIC']})</div>
+            </div>
+            <div class="kpi-cell">
+                <div class="kpi-label">Holdout Test Set</div>
+                <div class="kpi-num">1,170</div>
+                <div class="kpi-note">20% Stratified Unique URLs</div>
+            </div>
+        </div>
+        """, unsafe_allow_html=True)
+
+        st.caption("HOLDOUT TEST LEADERBOARD (1,170 UNIQUE SAMPLES)")
+        disp = metrics_df.copy()
+        for c in ("Accuracy", "Precision", "Recall Phishing", "F1-Score"):
+            disp[c] = (disp[c] * 100).map("{:.2f}%".format)
+        disp["ROC-AUC"] = disp["ROC-AUC"].map("{:.4f}".format)
+        disp["Train Time (s)"] = disp["Train Time (s)"].map("{:.4f}s".format)
+        st.dataframe(disp, use_container_width=True, hide_index=True)
+
+        melted = metrics_df.melt(
+            id_vars=["Algoritma"],
+            value_vars=["Accuracy", "Recall Phishing", "F1-Score", "ROC-AUC"],
+            var_name="Metric",
+            value_name="Score",
+        )
+        palette = ["#161615", "#C84B31", "#1B4332", "#9A6B4C", "#66635C"]
+        comp_chart = (
+            alt.Chart(melted)
+            .mark_bar()
+            .encode(
+                x=alt.X("Metric:N", title=None, axis=alt.Axis(labelAngle=0)),
+                y=alt.Y("Score:Q", scale=alt.Scale(domain=[0.85, 1.0]), title="Score"),
+                color=alt.Color("Algoritma:N", scale=alt.Scale(range=palette)),
+                xOffset="Algoritma:N",
+                tooltip=["Algoritma:N", "Metric:N", alt.Tooltip("Score:Q", format=".4f")],
+            )
+            .properties(height=270)
+        )
+        st.altair_chart(comp_chart, use_container_width=True)
+    else:
+        st.info("Belum ada file `*_metrics.json` di folder `evaluation/`.")
+
+    cv_file = KOMPARASI_DIR / "cv_5fold_summary.csv"
+    holm_file = KOMPARASI_DIR / "statistical_test_holm.csv"
+    if cv_file.exists() and holm_file.exists():
+        st.markdown("---")
+        c_cv, c_holm = st.columns(2, gap="large")
+        with c_cv:
+            st.caption("STRATIFIED 5-FOLD CROSS-VALIDATION (5,849 SAMPLES)")
+            st.dataframe(pd.read_csv(cv_file), use_container_width=True, hide_index=True)
+        with c_holm:
+            st.caption("PAIRED T-TEST + HOLM-BONFERRONI CORRECTION")
+            st.dataframe(pd.read_csv(holm_file), use_container_width=True, hide_index=True)
+
+
+with tab_method:
+    st.caption("DATA PIPELINE (ZERO LEAKAGE)")
     st.markdown("""
-    #### 3. Taksonomi 30 Fitur UCI
-    Fitur dalam sistem diklasifikasikan ke dalam 4 domain utama:
-    - **Fitur Berbasis Alamat URL (Address Bar):** Pengecekan IP address, panjang karakter URL, pemendek tautan (*URL shortener*), simbol `@`, *double slash redirect*, tanda minus `-` pada nama domain, serta kedalaman *subdomain*.
-    - **Fitur Anomali & Manipulasi Permintaan (Abnormal Request):** Keberadaan token HTTPS palsu pada label domain, pengalihan *request* aset gambar/skrip ke server luar, dan manipulasi *port* koneksi.
-    - **Fitur Struktur Konten HTML & Skrip:** Analisis persentase tautan *anchor*, integritas Server Form Handler (SFH), pencegahan klik kanan, manipulasi status mouseover, serta keberadaan *hidden iframe*.
-    - **Fitur Reputasi & Jejak Domain:** Umur domain, status registrasi DNS, peringkat *traffic*, Google PageRank, dan pencatatan pada basis data ancaman PhishTank / StopBadware.
-    """)
+    <div class="step-strip">
+        <div class="step-item">
+            <div class="kpi-label">01. Raw UCI Data</div>
+            <div class="kpi-num">11,055</div>
+            <div class="kpi-note">30 discrete features, 0 missing values</div>
+        </div>
+        <div class="step-item">
+            <div class="kpi-label">02. Deduplication</div>
+            <div class="kpi-num">-5,206</div>
+            <div class="kpi-note">Removed identical vectors before split</div>
+        </div>
+        <div class="step-item">
+            <div class="kpi-label">03. Unique Corpus</div>
+            <div class="kpi-num">5,849</div>
+            <div class="kpi-note">48.4% Legitimate / 51.6% Phishing</div>
+        </div>
+        <div class="step-item">
+            <div class="kpi-label">04. Stratified 80:20</div>
+            <div class="kpi-num">4,679 : 1,170</div>
+            <div class="kpi-note">Independent StandardScaler fit on train</div>
+        </div>
+    </div>
+    """, unsafe_allow_html=True)
+
+    st.caption("TEAM ROSTER & RESPONSIBILITIES (KELOMPOK 4)")
+    roster_df = pd.DataFrame([
+        {"Anggota": "Laura", "Peran TBP": "Project Lead & Data Prep", "Algoritma": "Decision Tree (CART)", "Fokus": "Aturan keputusan if-then & pruning max_depth"},
+        {"Anggota": "Wawa", "Peran TBP": "Feature Engineer", "Algoritma": "Random Forest", "Fokus": "Ensemble bagging (300 trees) & feature importance"},
+        {"Anggota": "Gisca", "Peran TBP": "Evaluator & Benchmark", "Algoritma": "Naive Bayes (CategoricalNB)", "Fokus": "Evaluasi gabungan 5 model & skrip benchmark"},
+        {"Anggota": "Irfan", "Peran TBP": "Deployment Engineer", "Algoritma": "K-Nearest Neighbors (k=11)", "Fokus": "Tuning k berbasis jarak & dashboard Streamlit"},
+        {"Anggota": "Rapip", "Peran TBP": "Business Analyst & Report", "Algoritma": "Logistic Regression", "Fokus": "Analisis koefisien linear & laporan akhir TBP"},
+    ])
+    st.dataframe(roster_df, use_container_width=True, hide_index=True)
+
+    st.markdown("---")
+    st.caption("TAXONOMY OF 30 UCI SECURITY FEATURES")
+    t1, t2 = st.columns(2, gap="large")
+    with t1:
+        st.markdown("""
+        **Address Bar & Lexical (9 Fitur)**  
+        IP address di host, panjang URL, layanan shortener, simbol `@`, redirect `//`, tanda `-` pada domain, kedalaman sub-domain, status SSL, dan masa registrasi domain.
+
+        **Abnormal Request & HTML/JS (9 Fitur)**  
+        Token `https` palsu pada domain, aset eksternal (`Request_URL`), tautan anchor `<a>`, skrip/meta tags, Server Form Handler (`SFH`), `mailto:`, `on_mouseover`, klik kanan, pop-up, dan hidden `iframe`.
+        """)
+    with t2:
+        st.markdown("""
+        **Domain Reputation & Traffic (6 Fitur)**  
+        Umur domain (`age_of_domain`), catatan DNS (`DNSRecord`), peringkat `web_traffic`, `Page_Rank`, indeks Google (`Google_Index`), tautan balik, dan laporan blacklist PhishTank.
+
+        **Why Deduplication Matters**  
+        Karena fitur UCI sudah didiskretisasi ke `{-1, 0, 1}`, terdapat `5.206` baris duplikat. Pembersihan sebelum `train_test_split` menjamin evaluasi generalisasi yang jujur.
+        """)
