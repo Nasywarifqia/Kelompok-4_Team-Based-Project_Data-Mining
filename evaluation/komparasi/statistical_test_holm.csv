@@ -1,0 +1,9 @@
+Metrik,Model Terbaik,Pembanding,t_statistic,p_value_raw,p_value_holm,Signifikan (alpha=0.05)
+F1-Score (Phishing),Random Forest,Decision Tree (CART),13.3342,0.0002,0.0005,Ya
+F1-Score (Phishing),Random Forest,Naive Bayes,5.4836,0.0054,0.0054,Ya
+F1-Score (Phishing),Random Forest,K-Nearest Neighbors,10.2242,0.0005,0.001,Ya
+F1-Score (Phishing),Random Forest,Logistic Regression,19.1947,0.0,0.0002,Ya
+Recall (Phishing),Random Forest,Decision Tree (CART),2.5822,0.0612,0.1224,Tidak (Setara)
+Recall (Phishing),Random Forest,Naive Bayes,5.0536,0.0072,0.0216,Ya
+Recall (Phishing),Random Forest,K-Nearest Neighbors,1.0474,0.354,0.354,Tidak (Setara)
+Recall (Phishing),Random Forest,Logistic Regression,11.613,0.0003,0.0013,Ya

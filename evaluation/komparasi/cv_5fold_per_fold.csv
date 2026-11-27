@@ -1,0 +1,26 @@
+Fold,Model,Accuracy,Recall (Phishing),F1-Score (Phishing),ROC-AUC
+1,Random Forest,0.9521,0.9404,0.953,0.9893
+1,Decision Tree (CART),0.9376,0.9255,0.9387,0.9736
+1,Naive Bayes,0.9265,0.9106,0.9275,0.9801
+1,K-Nearest Neighbors,0.9274,0.9503,0.9311,0.9785
+1,Logistic Regression,0.9188,0.9089,0.9204,0.9753
+2,Random Forest,0.9453,0.9503,0.9472,0.9877
+2,Decision Tree (CART),0.9308,0.9272,0.9326,0.9793
+2,Naive Bayes,0.935,0.9321,0.9368,0.98
+2,K-Nearest Neighbors,0.9162,0.9387,0.9205,0.9738
+2,Logistic Regression,0.9197,0.9189,0.9219,0.9763
+3,Random Forest,0.9487,0.9454,0.9501,0.9901
+3,Decision Tree (CART),0.9333,0.9321,0.9352,0.9713
+3,Naive Bayes,0.9291,0.9288,0.9311,0.9813
+3,K-Nearest Neighbors,0.9128,0.9255,0.9164,0.9797
+3,Logistic Regression,0.9197,0.9255,0.9224,0.9753
+4,Random Forest,0.9496,0.9421,0.9507,0.9904
+4,Decision Tree (CART),0.9385,0.9454,0.9407,0.977
+4,Naive Bayes,0.9316,0.9123,0.9323,0.9835
+4,K-Nearest Neighbors,0.9256,0.9421,0.929,0.9824
+4,Logistic Regression,0.9231,0.9123,0.9245,0.9793
+5,Random Forest,0.9504,0.9486,0.9517,0.9898
+5,Decision Tree (CART),0.9384,0.9403,0.9403,0.9729
+5,Naive Bayes,0.917,0.9005,0.918,0.9799
+5,K-Nearest Neighbors,0.9281,0.9436,0.9313,0.9835
+5,Logistic Regression,0.9179,0.9138,0.9199,0.974

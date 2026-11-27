@@ -1,0 +1,6 @@
+Model,Accuracy Mean,Accuracy Std,Recall (Phishing) Mean,Recall (Phishing) Std,F1-Score (Phishing) Mean,F1-Score (Phishing) Std,ROC-AUC Mean,ROC-AUC Std
+Random Forest,0.9492,0.0025,0.9453,0.0042,0.9506,0.0022,0.9895,0.0011
+Decision Tree (CART),0.9357,0.0035,0.9341,0.0085,0.9375,0.0035,0.9748,0.0032
+Naive Bayes,0.9278,0.0068,0.9169,0.0133,0.9291,0.0071,0.981,0.0016
+K-Nearest Neighbors,0.922,0.007,0.94,0.0092,0.9256,0.0068,0.9796,0.0038
+Logistic Regression,0.9198,0.002,0.9159,0.0065,0.9218,0.0018,0.9761,0.002
